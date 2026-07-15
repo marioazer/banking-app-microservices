@@ -1,0 +1,20 @@
+# Exclude AWS Local Credentials
+.aws/
+
+# Terraform local state and variable overrides
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+override.tf
+override.tf.json
+
+# Local IDE/Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS hidden files
+.DS_Store
+Thumbs.db

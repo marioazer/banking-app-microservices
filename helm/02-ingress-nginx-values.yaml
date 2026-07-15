@@ -1,0 +1,28 @@
+controller: 
+  name: controller 
+  replicaCount: 1
+
+  publishService:
+    enabled: true
+
+  service: 
+    enabled: true
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "external"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  metrics: 
+    enabled: true
+    serviceMonitor:
+      enabled: false

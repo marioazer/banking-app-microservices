@@ -1,0 +1,67 @@
+Here is a plain-language breakdown of what each Terraform file actually does in your execution lifecycle.
+
+```text
+terraform/
+├── provider.tf      # "The Connectors"  --> Sets up connections to AWS & Kubernetes APIs
+├── variables.tf     # "The Menu"        --> Declares expected parameters and default values
+├── terraform.tfvars # "The Ingredients" --> Defines secret or custom values for variables
+├── main.tf          # "The Blueprint"   --> Defines actual cloud resources to build
+└── outputs.tf       # "The Receipt"     --> Prints useful details after resources are created
+
+```
+
+---
+
+## 1. `provider.tf` — *The Connectors*
+
+* **Purpose:** Tells Terraform which cloud plugins to download and how to authenticate with them.
+* **Why it matters:** Terraform doesn't natively know how AWS or Kubernetes work. This file downloads the AWS plugin (to create RDS, EKS, VPC) and the Kubernetes plugin (to manage the cluster once built).
+* **Key contents:** AWS region configurations, S3 remote state tracking, and authentication parameters for `kubectl`.
+
+---
+
+## 2. `variables.tf` — *The Menu*
+
+* **Purpose:** Declares the **input parameters** your Terraform code accepts without hardcoding values.
+* **Why it matters:** It makes your infrastructure code modular and reusable across environments (`dev`, `staging`, `prod`) by allowing parameters to change.
+* **Key contents:** Definitions for variable names, types (string, number), descriptions, and optional fallback default values (e.g., `cluster_name`, `aws_region`).
+
+---
+
+## 3. `terraform.tfvars` — *The Ingredients*
+
+* **Purpose:** Supplies the **actual real-world values** for the parameters defined in `variables.tf`.
+* **Why it matters:** Keeps passwords, secret keys, and environment-specific settings out of your core configuration code. You can swap `terraform.tfvars` files to switch environments easily.
+* **Key contents:** Key-value pairs matching your variables (e.g., `db_password = "BankingSecurePass2026!"`).
+
+---
+
+## 4. `main.tf` — *The Blueprint*
+
+* **Purpose:** The core configuration file that defines **what resources AWS will actually build**.
+* **Why it matters:** This is where you specify your isolated network (VPC), managed PostgreSQL database (RDS), security boundaries (Security Groups), and Kubernetes cluster (EKS).
+* **Key contents:**
+* `module "vpc"`: Subnets, IP addresses, NAT gateways.
+* `aws_db_instance`: Engine version, instance scale, storage limit.
+* `module "eks"`: Kubernetes version, node pool hardware specs (`t3.medium`).
+
+
+
+---
+
+## 5. `outputs.tf` — *The Receipt*
+
+* **Purpose:** Exposes critical values generated **after** resources are created.
+* **Why it matters:** When AWS provisions an RDS database or EKS cluster, you won't know its generated IP addresses or hostnames until the build finishes. This file prints those values to your terminal so your Helm charts and application configuration can use them.
+* **Key contents:** `rds_hostname`, `eks_cluster_endpoint`, `eks_cluster_name`.
+
+---
+
+### How They Work Together at Execution
+
+```text
+1. terraform init   --> Reads provider.tf and downloads the AWS/K8s plugins.
+2. terraform plan   --> Combines main.tf + variables.tf + terraform.tfvars to preview changes.
+3. terraform apply  --> Provisions resources in AWS, then prints outputs.tf to terminal.
+
+```
