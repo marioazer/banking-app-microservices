@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transfer-service
+  namespace: banking-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: transfer-service
+  template:
+    metadata:
+      labels:
+        app: transfer-service
+    spec:
+      containers:
+        - name: transfer-service
+          image: your-docker-registry/transfer-service:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: banking-global-config
+            - secretRef:
+                name: banking-db-secret
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka.banking-app.svc.cluster.local:9092"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transfer-service
+  namespace: banking-app
+spec:
+  type: ClusterIP
+  selector:
+    app: transfer-service
+  ports:
+    - port: 8080
+      targetPort: 8080

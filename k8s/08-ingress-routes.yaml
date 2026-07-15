@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: banking-ingress
+  namespace: banking-app
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+
+spec:
+  rules:
+    - http:
+        paths:
+          # 1. user traffic
+          - path: /api/v1/users
+            pathType: Prefix
+            backend: 
+              service:
+                name: user-service
+                port: 
+                  number: 8080
+
+          # 2. Account Traffic
+          - path: /api/v1/accounts
+            pathType: Prefix
+            backend:
+              service:
+                name: account-service
+                port:
+                  number: 8080
+
+          # 3. Transaction Traffic
+          - path: /api/v1/transactions
+            pathType: Prefix
+            backend:
+              service:
+                name: transaction-service
+                port:
+                  number: 8080
+                  
+          # 4. Transfer Traffic
+          - path: /api/v1/transfers
+            pathType: Prefix
+            backend:
+              service:
+                name: transfer-service
+                port:
+                  number: 8080

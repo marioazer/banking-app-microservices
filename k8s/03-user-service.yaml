@@ -1,0 +1,47 @@
+# this yaml file is for microservice user service
+
+# user service deployment this will be the workload
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: banking-app
+spec:
+  replicas: 2
+  selector: 
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+        # this is a place holder for now 
+        # I will replace 'your-docker-registry' with my actual Docker Hub username
+        # I am more worried about building the file rn not actual values
+          image: your-docker-registry/user-service:latest
+          ports:
+            - containerPort: 8080
+          # this is where we import the namespace configmap and the secret I just built
+          envFrom:
+            - configMapRef:
+                name: banking-global-config
+            - secretRef:
+                name: banking-db-secret
+---
+# this is the internal balancer aka the user service network router
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: banking-app
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - port: 8080
+      targetPort: 8080

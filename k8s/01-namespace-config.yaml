@@ -1,0 +1,25 @@
+# this is the first file where I will code the namespace config
+
+# the application namespace
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: banking-app
+  labels:
+    name: banking-app
+
+# this will be the global configmap the shared ennvironment variables
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-global-config
+  namespace: banking-app
+
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  DB_NAME: "banking"
+  DB_PORT: "5432"
+
+  DB_HOST: "banking-postgres-db.c1234567890.us-east-1.rds.amazonaws.com"
