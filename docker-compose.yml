@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:15.4
+    container_name: banking-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: banking
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: localdevpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - banking_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  banking_postgres_data:

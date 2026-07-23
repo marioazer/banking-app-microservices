@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: 05-audit-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/banking
+    username: dbadmin
+    password: localdevpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 8086
