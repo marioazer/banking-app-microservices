@@ -44,7 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String username;
 
         // 1. Check for the Bearer token
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null) {
+            filterChain.doFilter(request, response);
+            return; // Exit filter
+        }
+        if (!authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return; // Exit filter
         }
@@ -58,46 +62,66 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             TokenType tokenType = jwtService.extractTokenType(jwt);
 
             // 3. Blacklist Check (FR2.4)
-            if (blacklistedTokenRepository.existsById(jti)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Token has been revoked. Please log in again.\"}");
+            if (isBlacklisted(jti)) {
+                writeErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked. Please log in again.");
                 return; // Short-circuit the request
             }
 
             // 4. Boundary Enforcement (FR1.4)
             // Use getRequestURI() so MockMvc and Tomcat both match correctly
             String requestPath = request.getRequestURI();
-            if (tokenType == TokenType.PRE_AUTH && !requestPath.contains("/api/v1/auth/verify-2fa")) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Partial authentication. 2FA verification required.\"}");
+            if (violatesPreAuthBoundary(tokenType, requestPath)) {
+                writeErrorResponse(response, HttpServletResponse.SC_FORBIDDEN, "Partial authentication. 2FA verification required.");
                 return; // Short-circuit the request
             }
 
             // 5. Authenticate the User in Spring Security Context
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            }
+            authenticateIfNeeded(request, username, jwt);
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Invalid or expired token.\"}");
+            writeErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token.");
             return;
         }
 
         // Proceed to the next filter or the target Controller
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isBlacklisted(String jti) {
+        return blacklistedTokenRepository.existsById(jti);
+    }
+
+    private boolean violatesPreAuthBoundary(TokenType tokenType, String requestPath) {
+        if (tokenType != TokenType.PRE_AUTH) {
+            return false;
+        }
+        return !requestPath.contains("/api/v1/auth/verify-2fa");
+    }
+
+    private void authenticateIfNeeded(HttpServletRequest request, String username, String jwt) {
+        if (username == null) {
+            return;
+        }
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return;
+        }
+
+        UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+        if (jwtService.isTokenValid(jwt, userDetails)) {
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    userDetails,
+                    null,
+                    userDetails.getAuthorities()
+            );
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+        }
+    }
+
+    private void writeErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\": \"" + message + "\"}");
     }
 }

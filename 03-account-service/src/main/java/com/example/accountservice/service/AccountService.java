@@ -56,13 +56,7 @@ public class AccountService {
     public Page<TransactionEntity> getAccountTransactions(Long userId, Long accountId, TransactionType filterType, Pageable pageable) {
         
         // 1. Strict Ownership Authorization Check (FR6.4 AC3)[cite: 4]
-        AccountEntity account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found or invalid ID provided."));
-
-        if (!account.getUserId().equals(userId)) {
-            // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden[cite: 4]
-            throw new AccessDeniedException("Action forbidden: You do not have permission to view this account's history.");
-        }
+        verifyAccountOwnership(userId, accountId);
 
         // 2. Dynamic Repository Routing (FR6.3 AC2)[cite: 4]
         if (filterType != null) {
@@ -71,6 +65,16 @@ public class AccountService {
         } else {
             // If no filter is specified, return all transactions for the account[cite: 4]
             return transactionRepository.findByAccountId(accountId, pageable);
+        }
+    }
+
+    private void verifyAccountOwnership(Long userId, Long accountId) {
+        AccountEntity account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found or invalid ID provided."));
+
+        if (!account.getUserId().equals(userId)) {
+            // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden[cite: 4]
+            throw new AccessDeniedException("Action forbidden: You do not have permission to view this account's history.");
         }
     }
 }

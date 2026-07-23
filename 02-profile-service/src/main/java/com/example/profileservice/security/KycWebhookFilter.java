@@ -52,11 +52,28 @@ public class KycWebhookFilter extends OncePerRequestFilter {
         // 2. Wrap the request to cache the input stream
         CachedBodyHttpServletRequest wrappedRequest = new CachedBodyHttpServletRequest(request);
 
+        // 3-5. Extract the vendor's signature, compute our own, and compare them
+        String signatureError = verifySignature(wrappedRequest);
+        if (signatureError != null) {
+            rejectRequest(response, signatureError);
+            return;
+        }
+
+        // 6. Signature is valid! Pass the WRAPPED request to the Controller so it can read the body again
+        filterChain.doFilter(wrappedRequest, response);
+    }
+
+    /**
+     * Returns null if the vendor's signature is valid, or the specific rejection message otherwise.
+     */
+    private String verifySignature(CachedBodyHttpServletRequest wrappedRequest) {
         // 3. Extract the signature provided by the vendor
         String vendorSignature = wrappedRequest.getHeader(SIGNATURE_HEADER);
-        if (vendorSignature == null || vendorSignature.isBlank()) {
-            rejectRequest(response, "Missing X-Signature header");
-            return;
+        if (vendorSignature == null) {
+            return "Missing X-Signature header";
+        }
+        if (vendorSignature.isBlank()) {
+            return "Missing X-Signature header";
         }
 
         // 4. Calculate our own HMAC signature based on the raw payload
@@ -65,12 +82,9 @@ public class KycWebhookFilter extends OncePerRequestFilter {
 
         // 5. Securely compare the signatures
         if (!isSignatureValid(vendorSignature, calculatedSignature)) {
-            rejectRequest(response, "Invalid webhook signature");
-            return;
+            return "Invalid webhook signature";
         }
-
-        // 6. Signature is valid! Pass the WRAPPED request to the Controller so it can read the body again
-        filterChain.doFilter(wrappedRequest, response);
+        return null;
     }
 
     private String calculateHmac(String data, String key) {
@@ -89,7 +103,8 @@ public class KycWebhookFilter extends OncePerRequestFilter {
      * Prevents Timing Attacks by checking every single byte, even if a mismatch is found early.
      */
     private boolean isSignatureValid(String expected, String actual) {
-        if (expected == null || actual == null) return false;
+        if (expected == null) return false;
+        if (actual == null) return false;
         // MessageDigest.isEqual performs a cryptographic constant-time comparison
         return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), actual.getBytes(StandardCharsets.UTF_8));
     }

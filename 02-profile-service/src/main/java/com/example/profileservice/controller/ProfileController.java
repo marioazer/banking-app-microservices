@@ -87,7 +87,10 @@ public class ProfileController {
         KycStatus newStatus = KycStatus.valueOf(payload.get("status"));
         String reason = payload.get("reason");
 
-        if (reason == null || reason.isBlank()) {
+        if (reason == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Override reason is mandatory"));
+        }
+        if (reason.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Override reason is mandatory"));
         }
 

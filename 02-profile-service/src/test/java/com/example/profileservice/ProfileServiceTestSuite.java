@@ -309,8 +309,8 @@ class ProfileServiceTestSuite {
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
 
-        verify(preferenceRepository).save(argThat(entity ->
-                entity.getUserId().equals(100L) && entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0));
+        verify(preferenceRepository).save(argThat(entity -> entity.getUserId().equals(100L)));
+        verify(preferenceRepository).save(argThat(entity -> entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0));
     }
 
     @Test
@@ -332,10 +332,9 @@ class ProfileServiceTestSuite {
 
         // New users get the same defaults as the V3 migration's column defaults for the
         // untouched fields (100.00 / false / UTC), not null.
-        verify(preferenceRepository).save(argThat(entity ->
-                entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0
-                        && Boolean.FALSE.equals(entity.getDailySummaryEnabled())
-                        && "UTC".equals(entity.getTimezone())));
+        verify(preferenceRepository).save(argThat(entity -> entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0));
+        verify(preferenceRepository).save(argThat(entity -> Boolean.FALSE.equals(entity.getDailySummaryEnabled())));
+        verify(preferenceRepository).save(argThat(entity -> "UTC".equals(entity.getTimezone())));
     }
 
     @Test
@@ -357,10 +356,9 @@ class ProfileServiceTestSuite {
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
 
-        verify(preferenceRepository).save(argThat(entity ->
-                entity.getAlertThresholdAmount().compareTo(new BigDecimal("300.00")) == 0
-                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
-                        && "Europe/London".equals(entity.getTimezone())));
+        verify(preferenceRepository).save(argThat(entity -> entity.getAlertThresholdAmount().compareTo(new BigDecimal("300.00")) == 0));
+        verify(preferenceRepository).save(argThat(entity -> Boolean.TRUE.equals(entity.getDailySummaryEnabled())));
+        verify(preferenceRepository).save(argThat(entity -> "Europe/London".equals(entity.getTimezone())));
     }
 
     @Test
@@ -395,10 +393,9 @@ class ProfileServiceTestSuite {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").doesNotExist()); // endpoint returns a plain string body, not JSON
 
-        verify(preferenceRepository).save(argThat(entity ->
-                entity.getUserId().equals(100L)
-                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
-                        && "Europe/London".equals(entity.getTimezone())));
+        verify(preferenceRepository).save(argThat(entity -> entity.getUserId().equals(100L)));
+        verify(preferenceRepository).save(argThat(entity -> Boolean.TRUE.equals(entity.getDailySummaryEnabled())));
+        verify(preferenceRepository).save(argThat(entity -> "Europe/London".equals(entity.getTimezone())));
     }
 
     @Test
@@ -420,10 +417,9 @@ class ProfileServiceTestSuite {
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
 
-        verify(preferenceRepository).save(argThat(entity ->
-                entity.getAlertThresholdAmount().compareTo(new BigDecimal("500.00")) == 0
-                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
-                        && "Asia/Tokyo".equals(entity.getTimezone())));
+        verify(preferenceRepository).save(argThat(entity -> entity.getAlertThresholdAmount().compareTo(new BigDecimal("500.00")) == 0));
+        verify(preferenceRepository).save(argThat(entity -> Boolean.TRUE.equals(entity.getDailySummaryEnabled())));
+        verify(preferenceRepository).save(argThat(entity -> "Asia/Tokyo".equals(entity.getTimezone())));
     }
 
     @Test

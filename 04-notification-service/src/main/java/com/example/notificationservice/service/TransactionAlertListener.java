@@ -42,32 +42,36 @@ public class TransactionAlertListener {
                 return;
             }
 
-            // 2. Evaluate if the transaction meets the alert criteria[cite: 4]
-            if (event.amount().compareTo(preferences.alertThresholdAmount()) >= 0) {
-                
-                log.info("Transaction {} (Amount: ${}) exceeded threshold (${}). Dispatching alert.", 
-                        event.transactionId(), event.amount(), preferences.alertThresholdAmount());
-
-                // 3. Format the alert message[cite: 4]
-                String subject = "Bank Alert: Large Debit Transaction";
-                String htmlMessage = buildHtmlMessage(event);
-
-                // Note: In a full system, we would fetch the user's email address here.
-                // We use a generated placeholder for the dispatch signature contract.
-                String userEmail = "user_" + event.userId() + "@bank.com";
-
-                // 4. Delegate to the provider service (which handles its own external retries)[cite: 4]
-                notificationProviderService.dispatchEmail(userEmail, subject, htmlMessage);
-                
-            } else {
-                log.debug("Transaction {} (Amount: ${}) is below threshold (${}). No alert needed.", 
-                        event.transactionId(), event.amount(), preferences.alertThresholdAmount());
-            }
+            // 2-4. Evaluate the transaction against the alert threshold and dispatch if it qualifies
+            evaluateAndDispatchAlert(event, preferences);
 
         } catch (Exception e) {
-            // We catch generic exceptions here so the Kafka Consumer doesn't crash 
+            // We catch generic exceptions here so the Kafka Consumer doesn't crash
             // and get stuck in an infinite loop for a single bad message.
             log.error("Failed to process Kafka event for Transaction ID: {}", event.transactionId(), e);
+        }
+    }
+
+    private void evaluateAndDispatchAlert(FundsTransferredEvent event, ProfileServiceClient.UserPreferenceResponse preferences) {
+        if (event.amount().compareTo(preferences.alertThresholdAmount()) >= 0) {
+
+            log.info("Transaction {} (Amount: ${}) exceeded threshold (${}). Dispatching alert.",
+                    event.transactionId(), event.amount(), preferences.alertThresholdAmount());
+
+            // Format the alert message[cite: 4]
+            String subject = "Bank Alert: Large Debit Transaction";
+            String htmlMessage = buildHtmlMessage(event);
+
+            // Note: In a full system, we would fetch the user's email address here.
+            // We use a generated placeholder for the dispatch signature contract.
+            String userEmail = "user_" + event.userId() + "@bank.com";
+
+            // Delegate to the provider service (which handles its own external retries)[cite: 4]
+            notificationProviderService.dispatchEmail(userEmail, subject, htmlMessage);
+
+        } else {
+            log.debug("Transaction {} (Amount: ${}) is below threshold (${}). No alert needed.",
+                    event.transactionId(), event.amount(), preferences.alertThresholdAmount());
         }
     }
 

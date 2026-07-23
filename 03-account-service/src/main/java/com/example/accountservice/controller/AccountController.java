@@ -67,7 +67,10 @@ public class AccountController {
      */
     private Long extractUserIdFromAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null) {
+            throw new SecurityException("User is not authenticated");
+        }
+        if (!authentication.isAuthenticated()) {
             throw new SecurityException("User is not authenticated");
         }
         return Long.valueOf(authentication.getName());

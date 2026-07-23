@@ -68,21 +68,29 @@ public class AuthController {
         boolean isRecognized = authSecurityService.isDeviceRecognized(user.getId(), deviceCookie);
 
         if (isRecognized) {
-            // Bypass 2FA - Issue Full Access
-            String fullJwt = jwtService.generateToken(user, TokenType.FULL_AUTH);
-            ResponseCookie refreshCookie = createRefreshTokenCookie(user.getId());
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(Map.of("status", "SUCCESS", "access_token", fullJwt));
+            return handleRecognizedDeviceLogin(user);
         } else {
-            // Unrecognized Device - Require 2FA
-            String preAuthJwt = jwtService.generateToken(user, TokenType.PRE_AUTH);
-            authSecurityService.triggerSms2fa(user.getId(), user.getPhoneNumber());
-
-            return ResponseEntity.accepted()
-                    .body(Map.of("status", "2FA_REQUIRED", "pre_auth_token", preAuthJwt));
+            return handleUnrecognizedDeviceLogin(user);
         }
+    }
+
+    private ResponseEntity<?> handleRecognizedDeviceLogin(User user) {
+        // Bypass 2FA - Issue Full Access
+        String fullJwt = jwtService.generateToken(user, TokenType.FULL_AUTH);
+        ResponseCookie refreshCookie = createRefreshTokenCookie(user.getId());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(Map.of("status", "SUCCESS", "access_token", fullJwt));
+    }
+
+    private ResponseEntity<?> handleUnrecognizedDeviceLogin(User user) {
+        // Unrecognized Device - Require 2FA
+        String preAuthJwt = jwtService.generateToken(user, TokenType.PRE_AUTH);
+        authSecurityService.triggerSms2fa(user.getId(), user.getPhoneNumber());
+
+        return ResponseEntity.accepted()
+                .body(Map.of("status", "2FA_REQUIRED", "pre_auth_token", preAuthJwt));
     }
 
     // ==========================================
@@ -105,13 +113,17 @@ public class AuthController {
         }
 
         // 2. Success! Issue Full Access, generate new Device ID, and new Refresh Token
+        return buildSuccessfulAuthResponse(user);
+    }
+
+    private ResponseEntity<?> buildSuccessfulAuthResponse(User user) {
         String fullJwt = jwtService.generateToken(user, TokenType.FULL_AUTH);
         String rawDeviceId = authSecurityService.registerNewDevice(user.getId());
-        
+
         ResponseCookie deviceCookie = ResponseCookie.from("Device-ID", rawDeviceId)
                 .httpOnly(true).secure(true).path("/").maxAge(31536000) // 1 Year
                 .build();
-                
+
         ResponseCookie refreshCookie = createRefreshTokenCookie(user.getId());
 
         return ResponseEntity.ok()
@@ -130,11 +142,8 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
         }
 
-        String hashedToken = hashString(refreshToken);
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(hashedToken)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
-
-        if (!storedToken.isValid()) {
+        RefreshToken storedToken = validateAndFetchRefreshToken(refreshToken);
+        if (storedToken == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Refresh token expired or revoked"));
         }
 
@@ -145,6 +154,17 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("access_token", newJwt));
     }
 
+    private RefreshToken validateAndFetchRefreshToken(String refreshToken) {
+        String hashedToken = hashString(refreshToken);
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(hashedToken)
+                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+
+        if (!storedToken.isValid()) {
+            return null;
+        }
+        return storedToken;
+    }
+
     // ==========================================
     // 4. Explicit Logout Phase
     // ==========================================
@@ -152,13 +172,15 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String jwt = authHeader.substring(7);
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            User user = (User) auth.getPrincipal();
+        if (authHeader != null) {
+            if (authHeader.startsWith("Bearer ")) {
+                String jwt = authHeader.substring(7);
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                User user = (User) auth.getPrincipal();
 
-            // Blacklist the token and revoke session
-            authSecurityService.logoutUserSession(user.getId(), jwtService.extractJti(jwt), jwtService.extractExpirationDate(jwt));
+                // Blacklist the token and revoke session
+                authSecurityService.logoutUserSession(user.getId(), jwtService.extractJti(jwt), jwtService.extractExpirationDate(jwt));
+            }
         }
 
         // Destroy the cookies on the frontend

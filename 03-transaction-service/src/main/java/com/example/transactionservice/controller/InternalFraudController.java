@@ -78,7 +78,7 @@ class FraudResolutionService {
      */
     @Transactional
     public void resolvePendingTransfer(UUID transactionId, InternalFraudController.FraudReviewUpdateDto payload) {
-        
+
         TransactionEntity transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
@@ -87,24 +87,31 @@ class FraudResolutionService {
         }
 
         if ("APPROVED".equals(payload.status())) {
-            // Funds were already deducted during initiation, so we simply finalize the status[cite: 2].
-            transaction.setStatus(TransactionStatus.COMPLETED);
-            transaction.setDescription(transaction.getDescription() + " [Fraud Review: APPROVED. Notes: " + payload.reviewerNotes() + "]");
-            transactionRepository.save(transaction);
-            
+            finalizeTransaction(transaction, payload.reviewerNotes());
         } else if ("REJECTED".equals(payload.status())) {
-            // Atomic Reversal Logic: Return the reserved funds to the user[cite: 2].
-            transaction.setStatus(TransactionStatus.REJECTED);
-            transaction.setDescription(transaction.getDescription() + " [Fraud Review: REJECTED. Notes: " + payload.reviewerNotes() + "]");
-            
-            AccountEntity account = accountRepository.findByIdForUpdate(transaction.getAccountId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Source account missing during reversal"));
-            
-            // Add the exact amount back to the user's available balance[cite: 2].
-            account.setAvailableBalance(account.getAvailableBalance().add(transaction.getAmount()));
-            
-            accountRepository.save(account);
-            transactionRepository.save(transaction);
+            reverseTransaction(transaction, payload.reviewerNotes());
         }
+    }
+
+    private void finalizeTransaction(TransactionEntity transaction, String reviewerNotes) {
+        // Funds were already deducted during initiation, so we simply finalize the status[cite: 2].
+        transaction.setStatus(TransactionStatus.COMPLETED);
+        transaction.setDescription(transaction.getDescription() + " [Fraud Review: APPROVED. Notes: " + reviewerNotes + "]");
+        transactionRepository.save(transaction);
+    }
+
+    private void reverseTransaction(TransactionEntity transaction, String reviewerNotes) {
+        // Atomic Reversal Logic: Return the reserved funds to the user[cite: 2].
+        transaction.setStatus(TransactionStatus.REJECTED);
+        transaction.setDescription(transaction.getDescription() + " [Fraud Review: REJECTED. Notes: " + reviewerNotes + "]");
+
+        AccountEntity account = accountRepository.findByIdForUpdate(transaction.getAccountId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Source account missing during reversal"));
+
+        // Add the exact amount back to the user's available balance[cite: 2].
+        account.setAvailableBalance(account.getAvailableBalance().add(transaction.getAmount()));
+
+        accountRepository.save(account);
+        transactionRepository.save(transaction);
     }
 }

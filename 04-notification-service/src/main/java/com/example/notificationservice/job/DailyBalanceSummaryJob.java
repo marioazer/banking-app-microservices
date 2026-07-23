@@ -52,12 +52,7 @@ public class DailyBalanceSummaryJob {
         Instant now = Instant.now(clock);
 
         // 1. Find all global timezones where the current local time is 8:00 AM
-        List<String> targetTimezones = ZoneId.getAvailableZoneIds().stream()
-                .filter(zoneId -> {
-                    ZonedDateTime localTime = ZonedDateTime.ofInstant(now, ZoneId.of(zoneId));
-                    return localTime.getHour() == 8;
-                })
-                .toList();
+        List<String> targetTimezones = findTimezonesAtHour(now, 8);
 
         if (targetTimezones.isEmpty()) {
             log.info("No timezones are currently at 8:00 AM. Job ending.");
@@ -77,12 +72,24 @@ public class DailyBalanceSummaryJob {
         }
     }
 
+    private List<String> findTimezonesAtHour(Instant now, int hour) {
+        return ZoneId.getAvailableZoneIds().stream()
+                .filter(zoneId -> {
+                    ZonedDateTime localTime = ZonedDateTime.ofInstant(now, ZoneId.of(zoneId));
+                    return localTime.getHour() == hour;
+                })
+                .toList();
+    }
+
     private void processUsersForTimezone(String timezone) {
         // 3. Fetch users who opted in and belong to this timezone[cite: 5]
-        List<ProfileServiceClient.UserPreferenceResponse> users = 
+        List<ProfileServiceClient.UserPreferenceResponse> users =
                 profileServiceClient.getUsersForDailySummary(timezone);
 
-        if (users == null || users.isEmpty()) {
+        if (users == null) {
+            return;
+        }
+        if (users.isEmpty()) {
             return;
         }
 
@@ -93,25 +100,34 @@ public class DailyBalanceSummaryJob {
         log.info("Found {} opted-in users for timezone {}. Fetching bulk balances.", userIds.size(), timezone);
 
         // 4. Perform the single batch network call to avoid N+1 query problems[cite: 5]
-        List<AccountServiceClient.UserAggregateBalanceResponse> balances = 
+        Map<Long, AccountServiceClient.UserAggregateBalanceResponse> balanceMap = fetchBalanceMap(userIds);
+
+        // 5. In-Memory Join & Dispatch[cite: 5]
+        dispatchSummaries(users, balanceMap);
+    }
+
+    private Map<Long, AccountServiceClient.UserAggregateBalanceResponse> fetchBalanceMap(List<Long> userIds) {
+        List<AccountServiceClient.UserAggregateBalanceResponse> balances =
                 accountServiceClient.getAggregateBalancesBatch(userIds);
 
         // Convert balance list into a Map for O(1) instantaneous lookup during the loop
-        Map<Long, AccountServiceClient.UserAggregateBalanceResponse> balanceMap = balances.stream()
+        return balances.stream()
                 .collect(Collectors.toMap(
-                        AccountServiceClient.UserAggregateBalanceResponse::userId, 
+                        AccountServiceClient.UserAggregateBalanceResponse::userId,
                         b -> b
                 ));
+    }
 
-        // 5. In-Memory Join & Dispatch[cite: 5]
+    private void dispatchSummaries(List<ProfileServiceClient.UserPreferenceResponse> users,
+                                    Map<Long, AccountServiceClient.UserAggregateBalanceResponse> balanceMap) {
         for (ProfileServiceClient.UserPreferenceResponse user : users) {
             AccountServiceClient.UserAggregateBalanceResponse userBalance = balanceMap.get(user.userId());
-            
+
             if (userBalance != null) {
                 String emailSubject = "Your Daily Balance Summary";
                 String emailHtml = buildHtmlSummary(userBalance);
                 String userEmail = "user_" + user.userId() + "@bank.com"; // Placeholder mapping
-                
+
                 notificationProviderService.dispatchEmail(userEmail, emailSubject, emailHtml);
             }
         }

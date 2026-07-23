@@ -26,21 +26,10 @@ public class KycEnforcementAspect {
     @Before("@annotation(com.example.transactionservice.annotation.RequiresKyc)")
     public void enforceKycStatus() {
         // 1. Securely extract the user ID from the active JWT session
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new SecurityException("User is not authenticated.");
-        }
-        
-        Long userId = Long.valueOf(authentication.getName());
+        Long userId = resolveAuthenticatedUserId();
 
         // 2. Make the synchronous network call to the Profile Service
-        Map<String, String> response = profileServiceClient.getKycStatus(userId);
-        
-        if (response == null || !response.containsKey("status")) {
-            throw new RuntimeException("Failed to retrieve KYC status from Profile Service");
-        }
-
-        String kycStatus = response.get("status");
+        String kycStatus = fetchKycStatus(userId);
 
         // 3. Enforce the strict compliance boundary (FR3.1 AC3)
         if (!"APPROVED".equals(kycStatus)) {
@@ -48,6 +37,30 @@ public class KycEnforcementAspect {
             // A @RestControllerAdvice class will catch this and translate it into a 403 Forbidden HTTP response.
             throw new KycRequiredException("Action forbidden: KYC verification is " + kycStatus + ". Approved status required to move funds.");
         }
+    }
+
+    private Long resolveAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new SecurityException("User is not authenticated.");
+        }
+        if (!authentication.isAuthenticated()) {
+            throw new SecurityException("User is not authenticated.");
+        }
+        return Long.valueOf(authentication.getName());
+    }
+
+    private String fetchKycStatus(Long userId) {
+        Map<String, String> response = profileServiceClient.getKycStatus(userId);
+
+        if (response == null) {
+            throw new RuntimeException("Failed to retrieve KYC status from Profile Service");
+        }
+        if (!response.containsKey("status")) {
+            throw new RuntimeException("Failed to retrieve KYC status from Profile Service");
+        }
+
+        return response.get("status");
     }
     
     // =========================================================================

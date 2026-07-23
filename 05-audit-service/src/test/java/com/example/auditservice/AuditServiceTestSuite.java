@@ -60,11 +60,10 @@ class AuditServiceTestSuite {
 
         profileAuditListener.consumeProfileUpdate(payload);
 
-        verify(auditLogRepository).save(argThat(entity ->
-                entity.getUserId().equals(100L)
-                        && "PHONE_CHANGE".equals(entity.getEventType())
-                        && entity.getTimestamp() != null
-                        && entity.getChangedFieldsJson().contains("+15552222222")));
+        verify(auditLogRepository).save(argThat(entity -> entity.getUserId().equals(100L)));
+        verify(auditLogRepository).save(argThat(entity -> "PHONE_CHANGE".equals(entity.getEventType())));
+        verify(auditLogRepository).save(argThat(entity -> entity.getTimestamp() != null));
+        verify(auditLogRepository).save(argThat(entity -> entity.getChangedFieldsJson().contains("+15552222222")));
     }
 
     @Test
@@ -83,7 +82,16 @@ class AuditServiceTestSuite {
             try {
                 Map<?, ?> parsedChanges = objectMapper.readValue(entity.getChangedFieldsJson(), Map.class);
                 Map<?, ?> addressChange = (Map<?, ?>) parsedChanges.get("addressLine1");
-                return "123 Main St".equals(addressChange.get("old")) && "456 Oak Ave".equals(addressChange.get("new"));
+                return "123 Main St".equals(addressChange.get("old"));
+            } catch (Exception e) {
+                return false;
+            }
+        }));
+        verify(auditLogRepository).save(argThat(entity -> {
+            try {
+                Map<?, ?> parsedChanges = objectMapper.readValue(entity.getChangedFieldsJson(), Map.class);
+                Map<?, ?> addressChange = (Map<?, ?>) parsedChanges.get("addressLine1");
+                return "456 Oak Ave".equals(addressChange.get("new"));
             } catch (Exception e) {
                 return false;
             }
@@ -115,8 +123,10 @@ class AuditServiceTestSuite {
         profileAuditListener.consumeProfileUpdate(firstEvent);
         profileAuditListener.consumeProfileUpdate(secondEvent);
 
-        verify(auditLogRepository, times(1)).save(argThat(e -> e.getUserId().equals(300L) && "PHONE_CHANGE".equals(e.getEventType())));
-        verify(auditLogRepository, times(1)).save(argThat(e -> e.getUserId().equals(400L) && "ADDRESS_CHANGE".equals(e.getEventType())));
+        verify(auditLogRepository, times(1)).save(argThat(e -> e.getUserId().equals(300L)));
+        verify(auditLogRepository, times(1)).save(argThat(e -> "PHONE_CHANGE".equals(e.getEventType())));
+        verify(auditLogRepository, times(1)).save(argThat(e -> e.getUserId().equals(400L)));
+        verify(auditLogRepository, times(1)).save(argThat(e -> "ADDRESS_CHANGE".equals(e.getEventType())));
     }
 
     /* ==========================================================

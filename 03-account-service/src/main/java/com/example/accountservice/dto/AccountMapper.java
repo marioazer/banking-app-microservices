@@ -27,7 +27,10 @@ public class AccountMapper {
      * Fulfills FR5.2 AC2.[cite: 3]
      */
     private String maskAccountNumber(String rawAccountNumber) {
-        if (rawAccountNumber == null || rawAccountNumber.length() <= 4) {
+        if (rawAccountNumber == null) {
+            return rawAccountNumber; // Failsafe for unusually short or malformed numbers
+        }
+        if (rawAccountNumber.length() <= 4) {
             return rawAccountNumber; // Failsafe for unusually short or malformed numbers
         }
         

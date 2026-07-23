@@ -43,11 +43,7 @@ public class ProfileManagementService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // 1. Capture the before state for the audit trail
-        Map<String, String> oldState = new HashMap<>();
-        oldState.put("phoneNumber", user.getPhoneNumber());
-        oldState.put("addressLine1", user.getAddressLine1());
-        oldState.put("city", user.getCity());
-        // ... (capture other fields as needed)
+        Map<String, String> oldState = captureOldContactState(user);
 
         // 2. Apply new state
         user.setPhoneNumber(dto.getPhoneNumber());
@@ -61,11 +57,24 @@ public class ProfileManagementService {
         userProfileRepository.save(user);
 
         // 4. Publish to Kafka with userId as the routing key
+        publishContactInfoChangedEvent(userId, oldState, dto);
+    }
+
+    private Map<String, String> captureOldContactState(UserProfile user) {
+        Map<String, String> oldState = new HashMap<>();
+        oldState.put("phoneNumber", user.getPhoneNumber());
+        oldState.put("addressLine1", user.getAddressLine1());
+        oldState.put("city", user.getCity());
+        // ... (capture other fields as needed)
+        return oldState;
+    }
+
+    private void publishContactInfoChangedEvent(Long userId, Map<String, String> oldState, UpdateContactInfoRequestDto dto) {
         Map<String, Object> changes = Map.of("old", oldState, "new", dto);
         ProfileUpdatedEvent event = new ProfileUpdatedEvent(
                 userId, LocalDateTime.now(), "CONTACT_INFO_CHANGE", changes
         );
-        
+
         kafkaTemplate.send(PROFILE_EVENTS_TOPIC, String.valueOf(userId), event);
     }
 
@@ -103,10 +112,7 @@ public class ProfileManagementService {
         KycStatus oldStatus = user.getKycStatus();
 
         // 1. Log the override in the immutable audit table
-        KycOverrideAuditLog auditLog = new KycOverrideAuditLog(
-                userId, adminId, oldStatus, newStatus, reason
-        );
-        auditLogRepository.save(auditLog);
+        recordOverrideAuditLog(userId, adminId, oldStatus, newStatus, reason);
 
         // 2. Update the user's status
         user.setKycStatus(newStatus);
@@ -115,6 +121,13 @@ public class ProfileManagementService {
         // 3. Publish the exact same Kafka event as the webhook
         KycStatusUpdatedEvent event = new KycStatusUpdatedEvent(userId, oldStatus, newStatus, LocalDateTime.now());
         kafkaTemplate.send(KYC_EVENTS_TOPIC, String.valueOf(userId), event);
+    }
+
+    private void recordOverrideAuditLog(Long userId, Long adminId, KycStatus oldStatus, KycStatus newStatus, String reason) {
+        KycOverrideAuditLog auditLog = new KycOverrideAuditLog(
+                userId, adminId, oldStatus, newStatus, reason
+        );
+        auditLogRepository.save(auditLog);
     }
 
     // =========================================================================================

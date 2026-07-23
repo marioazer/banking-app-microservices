@@ -55,7 +55,8 @@ public class AuthSecurityService {
     // ==========================================
 
     public boolean isDeviceRecognized(Long userId, String rawDeviceCookie) {
-        if (rawDeviceCookie == null || rawDeviceCookie.isBlank()) return false;
+        if (rawDeviceCookie == null) return false;
+        if (rawDeviceCookie.isBlank()) return false;
         String hashedCookie = hashString(rawDeviceCookie);
         return deviceRepository.findByUserIdAndDeviceHash(userId, hashedCookie).isPresent();
     }
@@ -74,6 +75,11 @@ public class AuthSecurityService {
 
     @Transactional
     public void triggerSms2fa(Long userId, String phoneNumber) {
+        String code = generateAndStoreCode(userId);
+        publishSmsEvent(phoneNumber, code);
+    }
+
+    private String generateAndStoreCode(Long userId) {
         // 1. Clear out any old codes stuck in the database
         twoFactorCodeRepository.deleteByUserId(userId);
 
@@ -84,6 +90,10 @@ public class AuthSecurityService {
         // 3. Save the hash to the DB (Expires in 5 mins per FR1.3)
         twoFactorCodeRepository.save(new TwoFactorCode(userId, hashString(code)));
 
+        return code;
+    }
+
+    private void publishSmsEvent(String phoneNumber, String code) {
         // 4. Fire the Kafka Event
         try {
             Map<String, String> event = new HashMap<>();

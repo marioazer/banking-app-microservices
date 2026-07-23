@@ -46,9 +46,34 @@ public class ExternalWireService {
     @Transactional
     @RequiresKyc
     public TransferResponseDto initiateWire(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
-        
+
+        // 1-3. Validate format, lock+authorize the account, and verify sufficient funds
+        AccountEntity fromAccount = validateAndLockAccount(userId, fromAccountId, request);
+
+        // 4. Pre-reserve the funds by deducting them immediately
+        fromAccount.setAvailableBalance(fromAccount.getAvailableBalance().subtract(request.amount()));
+        accountRepository.save(fromAccount);
+
+        // 5. Threshold Check Logic[cite: 2]
+        TransactionStatus finalStatus = determineTransactionStatus(request.amount());
+
+        // 6. Record the transaction state
+        UUID transactionId = UUID.randomUUID();
+        recordTransaction(transactionId, fromAccountId, request, finalStatus);
+
+        // 7. Publish to Kafka if flagged for Fraud Review[cite: 2]
+        publishFraudReviewIfNeeded(transactionId, fromAccountId, request, finalStatus);
+
+        // 8. Return the UUID and the resulting status (either COMPLETED or PENDING_APPROVAL)
+        return new TransferResponseDto(transactionId, finalStatus.name());
+    }
+
+    private AccountEntity validateAndLockAccount(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
         // 1. Strict Formatting Validation[cite: 2]
-        if (!validator.isValidIban(request.iban()) || !validator.isValidSwift(request.swiftCode())) {
+        if (!validator.isValidIban(request.iban())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid IBAN or SWIFT code format.");
+        }
+        if (!validator.isValidSwift(request.swiftCode())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid IBAN or SWIFT code format.");
         }
 
@@ -65,41 +90,39 @@ public class ExternalWireService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_FUNDS");
         }
 
-        // 4. Pre-reserve the funds by deducting them immediately
-        fromAccount.setAvailableBalance(fromAccount.getAvailableBalance().subtract(request.amount()));
-        accountRepository.save(fromAccount);
+        return fromAccount;
+    }
 
-        // 5. Threshold Check Logic[cite: 2]
-        TransactionStatus finalStatus = TransactionStatus.COMPLETED;
-        if (request.amount().compareTo(FRAUD_THRESHOLD) > 0) {
-            finalStatus = TransactionStatus.PENDING_APPROVAL; // Requires manual or automated review[cite: 2]
+    private TransactionStatus determineTransactionStatus(BigDecimal amount) {
+        if (amount.compareTo(FRAUD_THRESHOLD) > 0) {
+            return TransactionStatus.PENDING_APPROVAL; // Requires manual or automated review[cite: 2]
         }
+        return TransactionStatus.COMPLETED;
+    }
 
-        // 6. Record the transaction state
-        UUID transactionId = UUID.randomUUID();
+    private void recordTransaction(UUID transactionId, Long fromAccountId, ExternalWireRequestDto request, TransactionStatus status) {
         TransactionEntity transaction = new TransactionEntity();
         transaction.setTransactionId(transactionId);
         transaction.setAccountId(fromAccountId);
         transaction.setAmount(request.amount());
-        transaction.setStatus(finalStatus);
+        transaction.setStatus(status);
         transaction.setDescription("External Wire to " + request.beneficiaryName());
         transactionRepository.save(transaction);
+    }
 
-        // 7. Publish to Kafka if flagged for Fraud Review[cite: 2]
-        if (finalStatus == TransactionStatus.PENDING_APPROVAL) {
-            LargeTransferRequestedEvent event = new LargeTransferRequestedEvent(
-                    transactionId,
-                    fromAccountId,
-                    request.amount(),
-                    request.iban(),
-                    request.swiftCode(),
-                    request.beneficiaryName()
-            );
-            // Fire the event to the Fraud Detection Service[cite: 2]
-            kafkaTemplate.send(FRAUD_TOPIC, transactionId.toString(), event);
+    private void publishFraudReviewIfNeeded(UUID transactionId, Long fromAccountId, ExternalWireRequestDto request, TransactionStatus status) {
+        if (status != TransactionStatus.PENDING_APPROVAL) {
+            return;
         }
-
-        // 8. Return the UUID and the resulting status (either COMPLETED or PENDING_APPROVAL)
-        return new TransferResponseDto(transactionId, finalStatus.name());
+        LargeTransferRequestedEvent event = new LargeTransferRequestedEvent(
+                transactionId,
+                fromAccountId,
+                request.amount(),
+                request.iban(),
+                request.swiftCode(),
+                request.beneficiaryName()
+        );
+        // Fire the event to the Fraud Detection Service[cite: 2]
+        kafkaTemplate.send(FRAUD_TOPIC, transactionId.toString(), event);
     }
 }

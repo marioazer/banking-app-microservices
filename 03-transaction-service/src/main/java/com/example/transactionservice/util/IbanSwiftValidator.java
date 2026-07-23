@@ -28,7 +28,10 @@ public class IbanSwiftValidator {
         // Standardize the format
         String normalizedIban = iban.replaceAll("\\s+", "").toUpperCase();
 
-        if (normalizedIban.length() < 15 || normalizedIban.length() > 34) {
+        if (normalizedIban.length() < 15) {
+            return false;
+        }
+        if (normalizedIban.length() > 34) {
             return false;
         }
 
@@ -71,7 +74,8 @@ public class IbanSwiftValidator {
         String normalizedSwift = swiftCode.trim().toUpperCase();
 
         // Must be exactly 8 (primary office) or 11 (specific branch) characters long
-        if (normalizedSwift.length() != 8 && normalizedSwift.length() != 11) {
+        boolean isValidLength = normalizedSwift.length() == 8 || normalizedSwift.length() == 11;
+        if (!isValidLength) {
             return false;
         }
 
