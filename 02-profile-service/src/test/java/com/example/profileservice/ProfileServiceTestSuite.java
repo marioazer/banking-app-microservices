@@ -1,5 +1,6 @@
 package com.example.profileservice;
 
+import com.example.profileservice.dto.AlertPreferencesDto;
 import com.example.profileservice.dto.UpdateContactInfoRequestDto;
 import com.example.profileservice.model.KycOverrideAuditLog;
 import com.example.profileservice.model.KycStatus;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -33,6 +35,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -284,6 +287,96 @@ class ProfileServiceTestSuite {
         profileManagementService.updateContactInfo(100L, dto);
 
         verify(kafkaTemplate).send(eq("profile-events"), eq("100"), any(ProfileUpdatedEvent.class));
+    }
+
+    /* ==========================================================
+       USER STORY 9.1: User Preference Management (Alert Threshold)
+       ========================================================== */
+
+    @Test
+    @DisplayName("Block: Update alert threshold with a valid, complete payload persists the preference - [MEANT TO PASS]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testBlock_UpdateAlertThreshold_ValidPayload_Persists() throws Exception {
+        // Requirement Cites: [Story 9.1 - AC1, AC2]
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
+
+        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("250.00"), true, "America/New_York");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+
+        verify(preferenceRepository).save(argThat(entity ->
+                entity.getUserId().equals(100L) && entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0));
+    }
+
+    @Test
+    @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testBlock_UpdateAlertThreshold_InvalidTimezone_ReturnsBadRequest() throws Exception {
+        // Requirement Cites: [Story 10.1 - AC2] (timezone validated as a real IANA identifier)
+        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "Not/A_Real_Zone");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Block [GAP]: Setting only the threshold still requires an unrelated daily-summary/timezone payload - [MEANT TO PASS, DOCUMENTS AN API-DESIGN GAP]")
+    @WithMockUser(username = "100")
+    void testBlock_Gap_ThresholdOnlyUpdate_StillRequiresDailySummaryFields() throws Exception {
+        // Requirement Cites: [Story 9.1 - AC1] ("expose an endpoint... to set alert_threshold_amount")
+        // Both /threshold and /daily-summary share one AlertPreferencesDto with all three fields
+        // @NotNull/@NotBlank, so a client that only wants to change the alert threshold is forced
+        // to also resend a valid dailySummaryEnabled + timezone (and vice versa for the
+        // daily-summary endpoint), even though each story only asks for its own concern.
+        // This asserts the CURRENT (coupled) behavior, not the AC-implied independent one.
+        String thresholdOnlyPayload = "{\"alertThresholdAmount\": 250.00}";
+
+        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(thresholdOnlyPayload))
+                .andExpect(status().isBadRequest());
+    }
+
+    /* ==========================================================
+       USER STORY 10.1: Opt-in Preferences (Daily Balance Summary)
+       ========================================================== */
+
+    @Test
+    @DisplayName("Final Block: Acceptance Criteria Verification - Daily summary opt-in persists enabled flag and timezone - [MEANT TO PASS]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testFinalAC_UpdateDailySummarySettings_ValidPayload_Persists() throws Exception {
+        // Requirement Cites: [Story 10.1 - AC1, AC2, AC3]
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
+
+        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "Europe/London");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").doesNotExist()); // endpoint returns a plain string body, not JSON
+
+        verify(preferenceRepository).save(argThat(entity ->
+                entity.getUserId().equals(100L)
+                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
+                        && "Europe/London".equals(entity.getTimezone())));
+    }
+
+    @Test
+    @DisplayName("Block: Pre-Auth token is denied on alert preference endpoints - [MEANT TO FAIL]")
+    void testBlock_AlertPreferences_Unauthenticated_Denied() throws Exception {
+        // Requirement Cites: [class-level @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')") on PreferenceController]
+        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "UTC");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().is4xxClientError());
     }
 
     /* ==========================================================

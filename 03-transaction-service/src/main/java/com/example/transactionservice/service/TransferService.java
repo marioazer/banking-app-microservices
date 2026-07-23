@@ -1,5 +1,6 @@
 package com.example.transactionservice.service;
 
+import com.example.transactionservice.annotation.RequiresKyc;
 import com.example.transactionservice.dto.TransferResponseDto;
 import com.example.transactionservice.event.FundsTransferredEvent;
 import com.example.transactionservice.model.AccountEntity;
@@ -19,7 +20,7 @@ public class TransferService {
     private final AccountRepository accountRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    public TransferService(AccountRepository accountRepository, 
+    public TransferService(AccountRepository accountRepository,
                            ApplicationEventPublisher eventPublisher) {
         this.accountRepository = accountRepository;
         this.eventPublisher = eventPublisher;
@@ -30,6 +31,7 @@ public class TransferService {
      * Guaranteed atomic execution via @Transactional.
      */
     @Transactional
+    @RequiresKyc
     public TransferResponseDto executeTransfer(Long userId, Long fromAccountId, Long toAccountId, BigDecimal amount) {
         
         // 1. Acquire hardware-level Pessimistic Locks on the rows to prevent race conditions
@@ -62,7 +64,7 @@ public class TransferService {
 
         // 7. Publish the domain event
         // A @TransactionalEventListener will catch this and send it to Kafka strictly AFTER the commit[cite: 1]
-        FundsTransferredEvent event = new FundsTransferredEvent(fromAccountId, toAccountId, amount, transactionId);
+        FundsTransferredEvent event = new FundsTransferredEvent(userId, fromAccountId, toAccountId, amount, transactionId);
         eventPublisher.publishEvent(event);
 
         // 8. Return confirmation payload[cite: 1]

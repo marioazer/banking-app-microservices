@@ -237,13 +237,12 @@ class AccountServiceTestSuite {
 
     @Test
     @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
-    @DisplayName("Block 10 [GAP]: Non-existent accountId should return a 4xx, not an unhandled 500 - [MEANT TO PASS, CURRENTLY FAILS: no exception mapping for IllegalArgumentException]")
-    void testBlock10_Gap_nonExistentAccountIdShouldFailCleanly() throws Exception {
+    @DisplayName("Block 10: Non-existent accountId returns 404, not an unhandled 500 - [MEANT TO FAIL]")
+    void testBlock10_nonExistentAccountIdReturns404() throws Exception {
         // Requirement Cites: [Story 6.4 - AC3] (invalid ID path)
-        // AccountService.getAccountTransactions() throws a raw IllegalArgumentException for a missing
-        // account, and there is no @ExceptionHandler/@ControllerAdvice mapping it to a client error -
-        // it currently surfaces as an unhandled 500 instead of 404/400. Left asserting the desired
-        // (spec-correct) outcome so this stays red until that mapping is added.
+        // AccountService.getAccountTransactions() now throws ResponseStatusException(NOT_FOUND, ...)
+        // for a missing account instead of a raw IllegalArgumentException, so Spring MVC maps it to
+        // a proper 404 rather than letting it escape as an unhandled 500.
         given(accountRepository.findById(999L)).willReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/accounts/999/transactions"))

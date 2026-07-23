@@ -10,9 +10,11 @@ import com.example.accountservice.repository.AccountRepository;
 import com.example.accountservice.repository.TransactionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,7 +57,7 @@ public class AccountService {
         
         // 1. Strict Ownership Authorization Check (FR6.4 AC3)[cite: 4]
         AccountEntity account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found or invalid ID provided."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found or invalid ID provided."));
 
         if (!account.getUserId().equals(userId)) {
             // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden[cite: 4]

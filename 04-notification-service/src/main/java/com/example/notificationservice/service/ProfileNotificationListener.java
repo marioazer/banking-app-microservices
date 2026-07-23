@@ -46,4 +46,4 @@ public class ProfileNotificationListener {
         
         logger.info("Email dispatched to user {}: [Subject: {}] [Body: {}]", userId, subject, body);
     }
-}d
+}

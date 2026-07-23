@@ -1,5 +1,6 @@
 package com.example.notificationservice.service;
 
+import com.example.notificationservice.client.EmailProviderClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.retry.annotation.Backoff;
@@ -16,11 +17,17 @@ public class NotificationProviderService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationProviderService.class);
 
+    private final EmailProviderClient emailProviderClient;
+
+    public NotificationProviderService(EmailProviderClient emailProviderClient) {
+        this.emailProviderClient = emailProviderClient;
+    }
+
     /**
      * Dispatches the formatted message to the external provider.
      * Fulfills FR9.3 AC2: Sent via external provider (e.g., SendGrid for Email)[cite: 4].
-     * 
-     * @Retryable acts as an interceptor. If a RuntimeException occurs:
+     *
+     * @Retryable acts as an interceptor. If emailProviderClient.send() throws:
      * - Attempt 1: Fails
      * - Wait 1000ms
      * - Attempt 2: Fails
@@ -34,19 +41,7 @@ public class NotificationProviderService {
     )
     public void dispatchEmail(String userEmail, String subject, String htmlContent) {
         log.info("Attempting to dispatch email via external provider to [{}]", userEmail);
-        
-        // ====================================================================
-        // External SDK Integration Boundary
-        // In a live environment, this is where SendGrid.api(request) executes.
-        // We simulate a network call that could theoretically fail.
-        // ====================================================================
-        boolean simulateNetworkFailure = false; // Toggle to test retry logic
-        
-        if (simulateNetworkFailure) {
-            throw new RuntimeException("503 Service Unavailable: SendGrid API Gateway timeout");
-        }
-
-        log.info("SUCCESS: Email payload delivered to external provider. Subject: {}", subject);
+        emailProviderClient.send(userEmail, subject, htmlContent);
     }
 
     /**

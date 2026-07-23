@@ -1,5 +1,6 @@
 package com.example.transactionservice.service;
 
+import com.example.transactionservice.annotation.RequiresKyc;
 import com.example.transactionservice.dto.ExternalWireRequestDto;
 import com.example.transactionservice.dto.TransferResponseDto;
 import com.example.transactionservice.event.LargeTransferRequestedEvent;
@@ -43,6 +44,7 @@ public class ExternalWireService {
      * Processes an external wire transfer, applying format validation and fraud thresholds.
      */
     @Transactional
+    @RequiresKyc
     public TransferResponseDto initiateWire(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
         
         // 1. Strict Formatting Validation[cite: 2]

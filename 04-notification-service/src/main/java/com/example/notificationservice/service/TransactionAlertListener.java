@@ -34,11 +34,11 @@ public class TransactionAlertListener {
 
         try {
             // 1. Perform sub-millisecond lookup via Cached Feign Client[cite: 4]
-            ProfileServiceClient.UserPreferenceResponse preferences = 
-                    profileServiceClient.getUserPreferences(event.fromAccountId());
+            ProfileServiceClient.UserPreferenceResponse preferences =
+                    profileServiceClient.getUserPreferences(event.userId());
 
             if (preferences == null) {
-                log.warn("No preferences found for User ID: {}. Skipping alert.", event.fromAccountId());
+                log.warn("No preferences found for User ID: {}. Skipping alert.", event.userId());
                 return;
             }
 
@@ -52,9 +52,9 @@ public class TransactionAlertListener {
                 String subject = "Bank Alert: Large Debit Transaction";
                 String htmlMessage = buildHtmlMessage(event);
 
-                // Note: In a full system, we would fetch the user's email address here. 
+                // Note: In a full system, we would fetch the user's email address here.
                 // We use a generated placeholder for the dispatch signature contract.
-                String userEmail = "user_" + event.fromAccountId() + "@bank.com";
+                String userEmail = "user_" + event.userId() + "@bank.com";
 
                 // 4. Delegate to the provider service (which handles its own external retries)[cite: 4]
                 notificationProviderService.dispatchEmail(userEmail, subject, htmlMessage);

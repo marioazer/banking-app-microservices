@@ -1,5 +1,6 @@
 package com.example.transactionservice;
 
+import com.example.transactionservice.aspect.KycEnforcementAspect;
 import com.example.transactionservice.client.ProfileServiceClient;
 import com.example.transactionservice.controller.TransferController.InternalTransferRequestDto;
 import com.example.transactionservice.event.FundsTransferredEvent;
@@ -95,6 +96,12 @@ class TransferServiceTestSuite {
         toAccount.setId(2L);
         toAccount.setUserId(42L);
         toAccount.setAvailableBalance(new BigDecimal("500.0000"));
+
+        // Default: caller is KYC-APPROVED. Individual KYC-rejection tests override this stub.
+        // KycEnforcementAspect resolves the caller from SecurityContextHolder, not from the
+        // userId method parameter, so tests calling the service directly (not through MockMvc)
+        // need @WithMockUser(username = "42", ...) for @RequiresKyc to reach this stub at all.
+        given(profileServiceClient.getKycStatus(42L)).willReturn(Map.of("status", "APPROVED"));
     }
 
     /* ==========================================================
@@ -102,6 +109,7 @@ class TransferServiceTestSuite {
        ========================================================== */
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 1: Insufficient funds rejects transfer with INSUFFICIENT_FUNDS - [MEANT TO FAIL]")
     void testBlock1_ExecuteTransfer_InsufficientFunds_ThrowsBadRequest() {
         // Requirement Cites: [Story 7.1 - AC1]
@@ -115,6 +123,7 @@ class TransferServiceTestSuite {
     }
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 2: Transfer between accounts not owned by the caller is forbidden - [MEANT TO FAIL]")
     void testBlock2_ExecuteTransfer_OwnershipMismatch_ThrowsForbidden() {
         // Requirement Cites: [Story 7.1] ownership boundary implied by "own accounts" in FR7 feature statement
@@ -137,6 +146,7 @@ class TransferServiceTestSuite {
        ========================================================== */
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 3: Transfer acquires pessimistic locks via findByIdForUpdate on both accounts - [MEANT TO PASS]")
     void testBlock3_ExecuteTransfer_UsesPessimisticLockOnBothAccounts() {
         // Requirement Cites: [Story 7.2 - AC1]
@@ -199,6 +209,7 @@ class TransferServiceTestSuite {
     }
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 5: Structurally valid but checksum-invalid IBAN rejected by IbanSwiftValidator - [MEANT TO FAIL]")
     void testBlock5_ExternalWire_ChecksumInvalidIban_ThrowsBadRequest() {
         // Requirement Cites: [Story 8.1 - AC2] (ISO 7064 MOD 97-10 validation, not just regex)
@@ -214,6 +225,7 @@ class TransferServiceTestSuite {
     }
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 6: Insufficient funds rejects external wire before reserving funds - [MEANT TO FAIL]")
     void testBlock6_ExternalWire_InsufficientFunds_ThrowsBadRequest() {
         // Requirement Cites: [Story 8.1 - AC3]
@@ -232,6 +244,7 @@ class TransferServiceTestSuite {
        ========================================================== */
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 7: Wire at or below $5000 completes immediately without a fraud event - [MEANT TO PASS]")
     void testBlock7_ExternalWire_AtThreshold_CompletesWithoutFraudEvent() {
         // Requirement Cites: [Story 8.2 - AC1] (threshold is strictly ">" 5000)
@@ -248,6 +261,7 @@ class TransferServiceTestSuite {
     }
 
     @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Final Block: Wire over $5000 is pre-reserved, marked PENDING_APPROVAL, and publishes LargeTransferRequestedEvent - [MEANT TO PASS]")
     void testFinalAC_ExternalWire_OverThreshold_PendingApprovalAndFraudEvent() {
         // Requirement Cites: [Story 8.1 - AC1,AC2,AC3], [Story 8.2 - AC1,AC2,AC3]
@@ -294,21 +308,42 @@ class TransferServiceTestSuite {
     }
 
     /* ==========================================================
-       GAP FINDING: FR3.1 AC3 cross-service KYC enforcement
-       (@RequiresKyc is defined and KycEnforcementAspect implements the
-       check, but the annotation is not actually placed on any
-       TransferService/ExternalWireService method yet - so this test
-       currently FAILS, correctly surfacing the missing wiring.)
+       USER STORY FR3.1 AC3 (cross-service): KYC Enforcement on Fund Movement
+       (@RequiresKyc is now applied to both TransferService.executeTransfer and
+       ExternalWireService.initiateWire; KycEnforcementAspect blocks either call
+       unless the Profile Service reports the caller's KYC status as APPROVED.)
        ========================================================== */
 
     @Test
-    @DisplayName("Block 10 [GAP]: Non-APPROVED KYC status should block fund transfers - [MEANT TO PASS, CURRENTLY FAILS: @RequiresKyc not wired to TransferService]")
-    void testBlock10_Gap_NonApprovedKyc_ShouldBlockTransfer() {
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
+    @DisplayName("Block 10: Non-APPROVED KYC status blocks an internal transfer - [MEANT TO FAIL]")
+    void testBlock10_NonApprovedKyc_BlocksInternalTransfer() {
         given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(fromAccount));
         given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.of(toAccount));
         given(profileServiceClient.getKycStatus(42L)).willReturn(Map.of("status", "PENDING_VERIFICATION"));
 
         assertThatThrownBy(() -> transferService.executeTransfer(42L, 1L, 2L, new BigDecimal("50.00")))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(KycEnforcementAspect.KycRequiredException.class)
+                .hasMessageContaining("PENDING_VERIFICATION");
+
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test
+    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
+    @DisplayName("Final Block: Non-APPROVED KYC status blocks an external wire before any funds move - [MEANT TO FAIL]")
+    void testFinalAC_NonApprovedKyc_BlocksExternalWire() {
+        given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(fromAccount));
+        given(profileServiceClient.getKycStatus(42L)).willReturn(Map.of("status", "REJECTED"));
+
+        var request = new com.example.transactionservice.dto.ExternalWireRequestDto(
+                VALID_IBAN, VALID_SWIFT, "John Smith", new BigDecimal("100.00"));
+
+        assertThatThrownBy(() -> externalWireService.initiateWire(42L, 1L, request))
+                .isInstanceOf(KycEnforcementAspect.KycRequiredException.class)
+                .hasMessageContaining("REJECTED");
+
+        verify(accountRepository, never()).save(any());
+        verify(transactionRepository, never()).save(any());
     }
 }

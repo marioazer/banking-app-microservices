@@ -1,5 +1,6 @@
 package com.example.notificationservice.job;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -28,13 +29,16 @@ public class DailyBalanceSummaryJob {
     private final ProfileServiceClient profileServiceClient;
     private final AccountServiceClient accountServiceClient;
     private final NotificationProviderService notificationProviderService;
+    private final Clock clock;
 
     public DailyBalanceSummaryJob(ProfileServiceClient profileServiceClient,
                                   AccountServiceClient accountServiceClient,
-                                  NotificationProviderService notificationProviderService) {
+                                  NotificationProviderService notificationProviderService,
+                                  Clock clock) {
         this.profileServiceClient = profileServiceClient;
         this.accountServiceClient = accountServiceClient;
         this.notificationProviderService = notificationProviderService;
+        this.clock = clock;
     }
 
     /**
@@ -45,8 +49,8 @@ public class DailyBalanceSummaryJob {
     public void processDailySummaries() {
         log.info("Starting hourly sweep for 8:00 AM Daily Balance Summaries.");
 
-        Instant now = Instant.now();
-        
+        Instant now = Instant.now(clock);
+
         // 1. Find all global timezones where the current local time is 8:00 AM
         List<String> targetTimezones = ZoneId.getAvailableZoneIds().stream()
                 .filter(zoneId -> {
