@@ -11,7 +11,7 @@ import java.util.Map;
  * This abstracts away all the boilerplate of manual HTTP calls.
  */
 // In production, 'url' is omitted in favor of a Service Registry like Netflix Eureka.
-@FeignClient(name = "profile-service", url = "${application.client.profile-service.url:http://localhost:8081}")
+@FeignClient(name = "profile-service", url = "${application.client.profile-service.url:http://localhost:8082}")
 public interface ProfileServiceClient {
 
     /**

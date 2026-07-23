@@ -10,13 +10,13 @@ spec:
   rules:
     - http:
         paths:
-          # 1. user traffic
-          - path: /api/v1/users
+          # 1. Auth traffic (login/2FA/refresh/logout - see AuthController)
+          - path: /api/v1/auth
             pathType: Prefix
-            backend: 
+            backend:
               service:
-                name: user-service
-                port: 
+                name: auth-service
+                port:
                   number: 8080
 
           # 2. Account Traffic
@@ -36,12 +36,22 @@ spec:
                 name: transaction-service
                 port:
                   number: 8080
-                  
-          # 4. Transfer Traffic
+
+          # 4. Transfer Traffic (TransferController lives inside transaction-service,
+          # there is no separate transfer-service deployment)
           - path: /api/v1/transfers
             pathType: Prefix
             backend:
               service:
-                name: transfer-service
+                name: transaction-service
+                port:
+                  number: 8080
+
+          # 5. Profile Traffic (ProfileController / PreferenceController)
+          - path: /api/v1/profiles
+            pathType: Prefix
+            backend:
+              service:
+                name: profile-service
                 port:
                   number: 8080

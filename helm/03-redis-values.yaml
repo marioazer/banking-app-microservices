@@ -1,0 +1,25 @@
+# redis cache for notification-service (@Cacheable / @EnableCaching in ProfileServiceClient.java)
+# install with a release named "redis" so the service DNS name is redis-master,
+# matching REDIS_HOST in k8s/07-notification-service.yaml
+# e.g. helm install redis bitnami/redis -f helm/03-redis-values.yaml -n banking-app
+
+architecture: standalone
+
+auth:
+  enabled: false
+
+master:
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+replica:
+  replicaCount: 0

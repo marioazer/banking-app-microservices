@@ -1,0 +1,72 @@
+# Requires these repo secrets to be set (Settings > Secrets and variables > Actions):
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, EKS_CLUSTER_NAME
+# GHCR push uses the built-in GITHUB_TOKEN - no extra registry secret needed.
+name: Deploy to EKS
+
+on:
+  workflow_run:
+    workflows: ["Build and Test"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  build-and-push:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service_dir: 01-auth-service
+            image_name: auth-service
+          - service_dir: 02-profile-service
+            image_name: profile-service
+          - service_dir: 03-account-service
+            image_name: account-service
+          - service_dir: 03-transaction-service
+            image_name: transaction-service
+          - service_dir: 04-notification-service
+            image_name: notification-service
+          - service_dir: 05-audit-service
+            image_name: audit-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service_dir }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Point manifests at the built images and apply
+        run: |
+          sed -i "s#your-docker-registry/#ghcr.io/${{ github.repository }}/#g" k8s/*.yaml
+          kubectl apply -f k8s/
