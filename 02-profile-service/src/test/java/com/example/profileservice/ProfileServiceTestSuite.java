@@ -1,9 +1,11 @@
 package com.example.profileservice;
 
-import com.example.profileservice.dto.AlertPreferencesDto;
+import com.example.profileservice.dto.UpdateAlertThresholdRequestDto;
 import com.example.profileservice.dto.UpdateContactInfoRequestDto;
+import com.example.profileservice.dto.UpdateDailySummaryRequestDto;
 import com.example.profileservice.model.KycOverrideAuditLog;
 import com.example.profileservice.model.KycStatus;
+import com.example.profileservice.model.UserPreferenceEntity;
 import com.example.profileservice.model.UserProfile;
 import com.example.profileservice.repository.KycOverrideAuditLogRepository;
 import com.example.profileservice.repository.PreferenceRepository;
@@ -294,13 +296,13 @@ class ProfileServiceTestSuite {
        ========================================================== */
 
     @Test
-    @DisplayName("Block: Update alert threshold with a valid, complete payload persists the preference - [MEANT TO PASS]")
+    @DisplayName("Block: Update alert threshold with a valid payload persists the preference - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateAlertThreshold_ValidPayload_Persists() throws Exception {
         // Requirement Cites: [Story 9.1 - AC1, AC2]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
 
-        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("250.00"), true, "America/New_York");
+        UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("250.00"));
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -312,33 +314,65 @@ class ProfileServiceTestSuite {
     }
 
     @Test
-    @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
+    @DisplayName("Block (fixed): Threshold-only payload is sufficient - daily-summary fields are no longer required - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
-    void testBlock_UpdateAlertThreshold_InvalidTimezone_ReturnsBadRequest() throws Exception {
-        // Requirement Cites: [Story 10.1 - AC2] (timezone validated as a real IANA identifier)
-        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "Not/A_Real_Zone");
-
-        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("Block [GAP]: Setting only the threshold still requires an unrelated daily-summary/timezone payload - [MEANT TO PASS, DOCUMENTS AN API-DESIGN GAP]")
-    @WithMockUser(username = "100")
-    void testBlock_Gap_ThresholdOnlyUpdate_StillRequiresDailySummaryFields() throws Exception {
+    void testBlock_UpdateAlertThreshold_ThresholdOnlyPayload_NoLongerRequiresDailySummaryFields() throws Exception {
         // Requirement Cites: [Story 9.1 - AC1] ("expose an endpoint... to set alert_threshold_amount")
-        // Both /threshold and /daily-summary share one AlertPreferencesDto with all three fields
-        // @NotNull/@NotBlank, so a client that only wants to change the alert threshold is forced
-        // to also resend a valid dailySummaryEnabled + timezone (and vice versa for the
-        // daily-summary endpoint), even though each story only asks for its own concern.
-        // This asserts the CURRENT (coupled) behavior, not the AC-implied independent one.
+        // /threshold and /daily-summary now use separate DTOs (UpdateAlertThresholdRequestDto /
+        // UpdateDailySummaryRequestDto), so a client updating only the threshold no longer has to
+        // resend an unrelated dailySummaryEnabled/timezone. Replaces the old test that documented
+        // the field coupling as a gap.
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
         String thresholdOnlyPayload = "{\"alertThresholdAmount\": 250.00}";
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(thresholdOnlyPayload))
+                .andExpect(status().isOk());
+
+        // New users get the same defaults as the V3 migration's column defaults for the
+        // untouched fields (100.00 / false / UTC), not null.
+        verify(preferenceRepository).save(argThat(entity ->
+                entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0
+                        && Boolean.FALSE.equals(entity.getDailySummaryEnabled())
+                        && "UTC".equals(entity.getTimezone())));
+    }
+
+    @Test
+    @DisplayName("Block: Updating the threshold leaves an existing daily-summary preference untouched - [MEANT TO PASS]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testBlock_UpdateAlertThreshold_PreservesExistingDailySummarySettings() throws Exception {
+        // Requirement Cites: [Story 9.1 - AC1] (independent of Story 10.1's settings)
+        UserPreferenceEntity existing = new UserPreferenceEntity();
+        existing.setUserId(100L);
+        existing.setAlertThresholdAmount(new BigDecimal("100.00"));
+        existing.setDailySummaryEnabled(true);
+        existing.setTimezone("Europe/London");
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.of(existing));
+
+        UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("300.00"));
+
+        mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+
+        verify(preferenceRepository).save(argThat(entity ->
+                entity.getAlertThresholdAmount().compareTo(new BigDecimal("300.00")) == 0
+                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
+                        && "Europe/London".equals(entity.getTimezone())));
+    }
+
+    @Test
+    @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testBlock_UpdateDailySummary_InvalidTimezone_ReturnsBadRequest() throws Exception {
+        // Requirement Cites: [Story 10.1 - AC2] (timezone validated as a real IANA identifier)
+        UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Not/A_Real_Zone");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -353,7 +387,7 @@ class ProfileServiceTestSuite {
         // Requirement Cites: [Story 10.1 - AC1, AC2, AC3]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
 
-        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "Europe/London");
+        UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Europe/London");
 
         mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -368,10 +402,35 @@ class ProfileServiceTestSuite {
     }
 
     @Test
+    @DisplayName("Block: Updating daily-summary settings leaves an existing alert threshold untouched - [MEANT TO PASS]")
+    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
+    void testBlock_UpdateDailySummary_PreservesExistingAlertThreshold() throws Exception {
+        // Requirement Cites: [Story 10.1 - AC1] (independent of Story 9.1's settings)
+        UserPreferenceEntity existing = new UserPreferenceEntity();
+        existing.setUserId(100L);
+        existing.setAlertThresholdAmount(new BigDecimal("500.00"));
+        existing.setDailySummaryEnabled(false);
+        existing.setTimezone("UTC");
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.of(existing));
+
+        UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Asia/Tokyo");
+
+        mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+
+        verify(preferenceRepository).save(argThat(entity ->
+                entity.getAlertThresholdAmount().compareTo(new BigDecimal("500.00")) == 0
+                        && Boolean.TRUE.equals(entity.getDailySummaryEnabled())
+                        && "Asia/Tokyo".equals(entity.getTimezone())));
+    }
+
+    @Test
     @DisplayName("Block: Pre-Auth token is denied on alert preference endpoints - [MEANT TO FAIL]")
     void testBlock_AlertPreferences_Unauthenticated_Denied() throws Exception {
         // Requirement Cites: [class-level @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')") on PreferenceController]
-        AlertPreferencesDto dto = new AlertPreferencesDto(new BigDecimal("100.00"), true, "UTC");
+        UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("100.00"));
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
                 .contentType(MediaType.APPLICATION_JSON)
