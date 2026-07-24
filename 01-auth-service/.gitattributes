@@ -1,2 +1,5 @@
+# mvnw is a shell script, has to keep unix line endings or it breaks on linux/mac/ci runners
+# even if it gets checked out on windows
 /mvnw text eol=lf
+# the windows counterpart, cmd files expect crlf line endings to run correctly
 *.cmd text eol=crlf

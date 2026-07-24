@@ -1,3 +1,8 @@
-/gradlew text eol=lf
-*.bat text eol=crlf
-*.jar binary
+# this got generated from a gradle spring initializr template by mistake, this module is actually
+# maven like the other five services (mvnw/pom.xml), fixed to match their .gitattributes instead
+
+# mvnw is a shell script, has to keep unix line endings or it breaks on linux/mac/ci runners
+# even if it gets checked out on windows
+/mvnw text eol=lf
+# the windows counterpart, cmd files expect crlf line endings to run correctly
+*.cmd text eol=crlf

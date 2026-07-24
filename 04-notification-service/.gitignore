@@ -1,10 +1,17 @@
+# default gitignore spring initializr generates for every new maven project, mostly untouched
+
+# help.md is the getting started file initializr drops in, not something worth keeping in git
 HELP.md
+# maven build output, target/ is where all the compiled classes and the packaged jar end up
 target/
 .mvn/wrapper/maven-wrapper.jar
+# these two exist in case a source folder literally has a subfolder named target, an edge case
+# initializr guards against by default, does not really come up in this project
 !**/src/main/**/target/
 !**/src/test/**/target/
 
 ### STS ###
+# spring tool suite specific files, not the ide I actually use but initializr includes this by default
 .apt_generated
 .classpath
 .factorypath
@@ -14,12 +21,14 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
+# this is the one that actually matters here since intellij is what I built this with
 .idea
 *.iws
 *.iml
 *.ipr
 
 ### NetBeans ###
+# not used on this project either, just part of the standard initializr template
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -30,4 +39,5 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
+# same idea as the root gitignore, keeping this per module copy since initializr generates it that way
 .vscode/

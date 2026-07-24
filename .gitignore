@@ -1,7 +1,12 @@
-# Exclude AWS Local Credentials
+# this is the root level gitignore, covers stuff shared across the whole repo that the six
+# per service gitignores below do not already handle on their own
+
+# just in case aws cli creds ever end up sitting locally in the repo folder, never want these committed
 .aws/
 
-# Terraform local state and variable overrides
+# terraform keeps its downloaded provider/module cache and real state locally, state especially can
+# contain resource ids and sometimes secrets, none of this belongs in git, this is why terraform.tfvars
+# with the real db password gets kept out even though a placeholder version could theoretically be shared
 .terraform/
 *.tfstate
 *.tfstate.backup
@@ -9,12 +14,13 @@
 override.tf
 override.tf.json
 
-# Local IDE/Editor folders
+# everyone's editor of choice leaves its own folder behind, ignoring the common ones so this
+# does not turn into a fight over whose ide config gets committed
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS hidden files
+# windows and mac both leave these behind when you browse a folder, pure clutter, never useful in git
 .DS_Store
 Thumbs.db
