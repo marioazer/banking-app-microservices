@@ -3,6 +3,8 @@
 # GHCR push uses the built-in GITHUB_TOKEN - no extra registry secret needed.
 name: Deploy to EKS
 
+# only kicks off after the build and test workflow finishes successfully on main, chaining the
+# two workflows together instead of just running everything in one giant file
 on:
   workflow_run:
     workflows: ["Build and Test"]
@@ -11,12 +13,14 @@ on:
 
 jobs:
   build-and-push:
+    # double checking the upstream workflow actually passed, not just that it finished running
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
+      # mapping each service folder to the image name it should get published under in ghcr
       matrix:
         include:
           - service_dir: 01-auth-service
@@ -34,6 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ghcr is github's own container registry, using the built in token instead of a separate
+      # docker hub login since everything already lives in this same github org
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -41,6 +47,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # builds using each service's own Dockerfile and pushes two tags, one pinned to this exact
+      # commit sha for traceability and a floating latest tag for convenience
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -51,6 +59,7 @@ jobs:
             ghcr.io/${{ github.repository }}/${{ matrix.image_name }}:latest
 
   deploy:
+    # waits for every image in the matrix above to finish building and pushing before touching the cluster
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
@@ -66,6 +75,8 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
 
+      # the k8s manifests still reference the your-docker-registry placeholder locally, so this swaps
+      # that placeholder for the real ghcr path right before applying, instead of hand editing every yaml
       - name: Point manifests at the built images and apply
         run: |
           sed -i "s#your-docker-registry/#ghcr.io/${{ github.repository }}/#g" k8s/*.yaml

@@ -1,3 +1,5 @@
+# transaction service deployment, handles internal transfers and external wires, this one talks to kafka
+# since it publishes fundstransferredevent and largetransferrequestedevent for the other services to consume
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,10 +25,12 @@ spec:
                 name: banking-global-config
             - secretRef:
                 name: banking-db-secret
+          # points at the in cluster kafka service so this pod can actually publish its events
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka.banking-app.svc.cluster.local:9092"
 ---
+# clusterip since this is only ever reached through the ingress or from other services internally
 apiVersion: v1
 kind: Service
 metadata:

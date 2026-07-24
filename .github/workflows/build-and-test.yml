@@ -1,3 +1,4 @@
+# runs the whole test suite for every service on every push and pull request against main
 name: Build and Test
 
 on:
@@ -10,6 +11,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      # fail-fast off on purpose, if one service's tests fail I still want to see the results
+      # for all the other five instead of the whole matrix getting cancelled early
       fail-fast: false
       matrix:
         service_dir:
@@ -22,12 +25,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # caching maven here so this job does not redownload the same dependencies on every single run
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
 
+      # each service is a completely standalone maven project, so this just cds into its folder and runs
+      # its own test suite, matrix.service_dir swaps in one of the six directories listed above per job
       - name: Run tests
         working-directory: ${{ matrix.service_dir }}
         run: ./mvnw test -B

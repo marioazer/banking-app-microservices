@@ -94,6 +94,11 @@ class AuthManagementTestSuite {
 
     private User mockUser;
 
+    // this runs before every single test in the class to set up one shared fake user
+    // mockito mock() gives me a fake user object instead of a real db backed one
+    // then I stub out the getters it will need, username, id and phone number
+    // last I stub the user details service so spring security can load this fake user by username
+    // saves every test below from repeating this same setup over and over
     @BeforeEach
     void setUp() {
         mockUser = mock(User.class);
@@ -108,6 +113,11 @@ class AuthManagementTestSuite {
        USER STORY 1.1: Device Fingerprinting & Recognition
        ========================================================== */
 
+    // checking that an unknown device cookie gets correctly reported as not recognized
+    // stub the device repository so looking up this user id with any hash string returns nothing
+    // call isdevicerecognized directly on the service with a made up cookie value
+    // since the repo came back empty the method should report false
+    // and verify the repository method actually got called with those arguments
     @Test
     @DisplayName("Block 1: Device Repository Query Returns Empty for Unrecognized Cookie - [MEANT TO FAIL]")
     void testBlock1_UnrecognizedDevice_ReturnsFalse() {
@@ -120,6 +130,11 @@ class AuthManagementTestSuite {
         verify(deviceRepository).findByUserIdAndDeviceHash(eq(1L), any(String.class));
     }
 
+    // same idea as the last test but flipped, this time the device should come back recognized
+    // stub the repository to return an actual recognizeddevice record for this user and hash
+    // call isdevicerecognized with a cookie value that is supposed to match that record
+    // this time it should come back true since the repo actually had a match
+    // and confirm the repository lookup was invoked with the right arguments
     @Test
     @DisplayName("Block 2: Device Repository Query Returns Match for Valid Cookie - [MEANT TO PASS]")
     void testBlock2_RecognizedDevice_ReturnsTrue() {
@@ -132,6 +147,12 @@ class AuthManagementTestSuite {
         verify(deviceRepository).findByUserIdAndDeviceHash(eq(1L), any(String.class));
     }
 
+    // full end to end style test hitting the real login endpoint through mockmvc
+    // mock out the authentication manager so it succeeds and returns our fake user as the principal
+    // also stub the device repository to say this device has never been seen before
+    // post a real json body to /api/v1/auth/login the same way an actual client would
+    // expect a 202 accepted status back instead of a normal 200 since 2fa still has to happen
+    // and expect the response body to say 2fa_required and to include a pre auth token
     @Test
     @DisplayName("Final Block: E2E Login Unrecognized Device Triggers 2FA & Issues Pre-Auth Token - [MEANT TO PASS]")
     void testFinalAC_LoginUnrecognizedDevice_Requires2FA() throws Exception {
@@ -153,6 +174,11 @@ class AuthManagementTestSuite {
        USER STORY 1.3: SMS 2FA via Kafka Integration
        ========================================================== */
 
+    // testing that kicking off sms 2fa actually does three things in one call
+    // call triggersms2fa directly with a user id and a phone number
+    // first it should delete any old 2fa code that is still sitting around for that user
+    // then it should save a brand new twofactorcode row for the fresh code
+    // and finally it should publish a message out to kafka on the notification events topic
     @Test
     @DisplayName("Block 1: Trigger SMS 2FA Clears Old Codes via Repository and Publishes to Kafka - [MEANT TO PASS]")
     void testBlock1_TriggerSms2fa_DeletesOldCodeAndPublishesKafka() {
@@ -163,6 +189,12 @@ class AuthManagementTestSuite {
         verify(kafkaTemplate).send(eq("notification-events"), any(String.class));
     }
 
+    // end to end test for successfully verifying an sms 2fa code
+    // generate a real pre auth jwt for the mock user using the actual jwtservice, not a fake one
+    // stub the repository to return a valid twofactorcode that matches what gets submitted below
+    // post the code to verify-2fa/sms using that pre auth token as the bearer header
+    // expect status ok, a success field, an access token, and a set-cookie header for the device
+    // last, make sure the code that just got used is actually deleted so it cannot be replayed
     @Test
     @DisplayName("Final Block: E2E Verify SMS 2FA Success Returns Session JWT & Device Cookie - [MEANT TO PASS]")
     void testFinalAC_VerifySms2fa_Success() throws Exception {
@@ -187,6 +219,11 @@ class AuthManagementTestSuite {
        USER STORY 1.4 & 2.1: JWT Issuance & Security Boundaries
        ========================================================== */
 
+    // checking that a pre auth token by itself cannot get into a fully protected endpoint
+    // generate a pre auth token, this is the partial token issued before 2fa is completed
+    // hit the logout endpoint using that pre auth token as the bearer token
+    // it should get blocked with a forbidden status
+    // and the error message should explain that full 2fa verification is still required
     @Test
     @DisplayName("Block 1: PRE_AUTH Token Restricted from Accessing Protected Endpoints - [MEANT TO FAIL]")
     void testBlock1_PreAuthToken_DeniedProtectedAccess() throws Exception {
@@ -198,6 +235,11 @@ class AuthManagementTestSuite {
                 .andExpect(jsonPath("$.error").value("Partial authentication. 2FA verification required."));
     }
 
+    // checking a fully authenticated token works the way it is supposed to end to end
+    // generate a full auth token for the mock user, this is the real post 2fa token
+    // confirm the token type that comes back out is full_auth and the username matches
+    // then actually use that token to call the logout endpoint
+    // expect a 200 ok back along with a logged out successfully message
     @Test
     @DisplayName("Final Block: FULL_AUTH Token Expiration and Authorization Check - [MEANT TO PASS]")
     void testFinalAC_FullAuthToken_AccessAllowed() throws Exception {
@@ -216,6 +258,10 @@ class AuthManagementTestSuite {
        USER STORY 2.2: Sliding Session (Activity Refresh)
        ========================================================== */
 
+    // making sure the refresh endpoint fails cleanly when there is no cookie at all
+    // call /api/v1/auth/refresh with no refresh token cookie attached to the request
+    // expect a 401 unauthorized status back
+    // and the error message should say the refresh token is missing
     @Test
     @DisplayName("Block 1: Refresh Session Fails When Cookie Missing - [MEANT TO FAIL]")
     void testBlock1_RefreshSession_MissingCookie() throws Exception {
@@ -224,6 +270,12 @@ class AuthManagementTestSuite {
                 .andExpect(jsonPath("$.error").value("Refresh token missing"));
     }
 
+    // making sure a revoked refresh token cannot be used to pull a new session
+    // build a raw refresh token string and hash it the same way the real service would
+    // create a refreshtoken entity with that hash and immediately call revoke() on it
+    // stub the repository so looking up that hash returns this already revoked token
+    // hit the refresh endpoint with the raw token attached as a cookie
+    // expect 401 unauthorized with an error message saying the token is expired or revoked
     @Test
     @DisplayName("Block 2: Refresh Session Fails When Token Revoked in Database - [MEANT TO FAIL]")
     void testBlock2_RefreshSession_RevokedToken() throws Exception {
@@ -241,6 +293,11 @@ class AuthManagementTestSuite {
                 .andExpect(jsonPath("$.error").value("Refresh token expired or revoked"));
     }
 
+    // happy path test for refreshing a session using a still valid refresh token
+    // build a raw token and its hashed form the same way the service does internally
+    // stub the repository to return an active, non revoked token for that hash
+    // hit the refresh endpoint passing the raw token back as a cookie
+    // expect status ok and a brand new access token sitting in the response body
     @Test
     @DisplayName("Final Block: Valid Refresh Token Issues Brand New FULL_AUTH Access Token - [MEANT TO PASS]")
     void testFinalAC_RefreshSession_Success() throws Exception {
@@ -260,6 +317,11 @@ class AuthManagementTestSuite {
        USER STORY 2.4: Explicit Logout & Token Blacklisting
        ========================================================== */
 
+    // testing that logging out actually cleans up both refresh tokens and the jwt itself
+    // make up a jti string and an expiration date about fifteen minutes out
+    // call logoutusersession directly with the user id, jti and expiration
+    // verify it revoked every one of this user's refresh tokens
+    // and verify it saved a new blacklistedtoken row for the jti so it cannot be reused
     @Test
     @DisplayName("Block 1: Logout User Revokes Refresh Tokens and Blacklists JTI - [MEANT TO PASS]")
     void testBlock1_LogoutSession_RevokesAndBlacklists() {
@@ -272,6 +334,10 @@ class AuthManagementTestSuite {
         verify(blacklistedTokenRepository).save(any(BlacklistedToken.class));
     }
 
+    // testing the scheduled cleanup job for the jwt blacklist table
+    // call purgeexpiredblacklisttokens directly the same way the scheduler would
+    // verify it calls deleteallexpiredtokenssince on the repository
+    // passing some localdatetime as the cutoff, the exact instant does not matter here
     @Test
     @DisplayName("Block 2: Scheduled Purge Executes Expired Blacklist Token Delete Query - [MEANT TO PASS]")
     void testBlock2_PurgeExpiredBlacklistTokens() {
@@ -280,6 +346,12 @@ class AuthManagementTestSuite {
         verify(blacklistedTokenRepository).deleteAllExpiredTokensSince(any(LocalDateTime.class));
     }
 
+    // end to end test making sure a blacklisted jwt gets rejected by the security filter
+    // generate a real full auth token then pull its jti back out of it
+    // stub the blacklist repository so existsbyid for that jti returns true
+    // hit the logout endpoint using that token as the bearer header
+    // expect a 401 unauthorized with a message saying the token has been revoked
+    // and confirm the filter actually checked the blacklist repository for that jti
     @Test
     @DisplayName("Final Block: Subsequent Request Using Blacklisted JTI Denied By JwtAuthenticationFilter - [MEANT TO FAIL]")
     void testFinalAC_BlacklistedJwt_DeniedByFilter() throws Exception {

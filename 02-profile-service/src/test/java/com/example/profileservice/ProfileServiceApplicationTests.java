@@ -21,6 +21,10 @@ class ProfileServiceApplicationTests {
     @MockBean
     private KafkaTemplate<String, Object> kafkaTemplate;
 
+    // default spring boot smoke test, just confirming the whole context wires up cleanly
+    // uses an in memory h2 database so nothing here touches the real postgres instance
+    // the kafka template is mocked out so there is no dependency on a real broker being up
+    // if any bean fails to construct or wire correctly this test fails on its own
     @Test
     void contextLoads() {
     }

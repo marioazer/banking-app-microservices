@@ -48,6 +48,12 @@ class AuditServiceTestSuite {
        USER STORY 4.3: Immutable Audit Logging
        ========================================================== */
 
+    // checking the basic happy path, a well formed profile update event gets mapped and saved correctly
+    // build a payload map by hand the way a real kafka message would deserialize, user id, event type,
+    // and a nested changes map showing the old and new phone number
+    // call consumeprofileupdate directly like the real kafka listener would
+    // verify the saved entity has the right user id, the right event type, a non null timestamp,
+    // and that the new phone number actually shows up in the serialized changed fields json
     @Test
     @DisplayName("Block 1: Valid ProfileUpdatedEvent payload is mapped and persisted correctly - [MEANT TO PASS]")
     void testBlock1_validPayload_mapsAndPersistsEntity() {
@@ -66,6 +72,11 @@ class AuditServiceTestSuite {
         verify(auditLogRepository).save(argThat(entity -> entity.getChangedFieldsJson().contains("+15552222222")));
     }
 
+    // digging deeper into the json serialization itself, not just checking a substring like the last test
+    // build a payload for an address change with both an old and a new address line
+    // call consumeprofileupdate directly
+    // then actually parse the saved changed_fields_json back out with the object mapper
+    // and confirm both the old address value and the new address value round trip correctly
     @Test
     @DisplayName("Block 2: The changes object is faithfully serialized into changed_fields_json - [MEANT TO PASS]")
     void testBlock2_changesObjectSerializedToJson() {
@@ -98,6 +109,10 @@ class AuditServiceTestSuite {
         }));
     }
 
+    // defensive test for a broken message that is missing the userId key entirely
+    // build a payload map with only an eventType, no userId at all, like a corrupted kafka message
+    // call consumeprofileupdate and expect no exception to escape, the consumer thread has to survive
+    // then verify the repository never got a save call, a bad message should not create a bad audit row
     @Test
     @DisplayName("Block 3: Malformed payload (missing userId) is swallowed, not persisted, does not crash the consumer - [MEANT TO PASS]")
     void testBlock3_malformedPayload_swallowedGracefully() {
@@ -109,6 +124,11 @@ class AuditServiceTestSuite {
         verify(auditLogRepository, never()).save(any());
     }
 
+    // making sure processing two different users' events back to back does not mix up their data
+    // build two separate payloads, one for user 300 changing a phone number, one for user 400 changing an address
+    // call consumeprofileupdate for each event one after the other
+    // verify a record saved for user 300 with phone_change, and a separate record for user 400 with address_change
+    // using times(1) on each so we know exactly one row went out per user, nothing merged or duplicated
     @Test
     @DisplayName("Block 4: Distinct events for different users produce distinct, non-cross-contaminated records - [MEANT TO PASS]")
     void testBlock4_multipleEvents_doNotCrossContaminate() {
@@ -133,6 +153,12 @@ class AuditServiceTestSuite {
        FINAL BLOCK: AC4 - Structural Immutability
        ========================================================== */
 
+    // structural test instead of a behavioral one, using reflection to inspect the entity class itself
+    // pull every declared method off of auditlogentity through java reflection
+    // check whether any of those method names start with set, meaning a setter exists
+    // assert that no setter was found at all
+    // this way if someone adds a setter later to fix some unrelated bug, this test catches the regression
+    // immediately instead of relying on everyone remembering the append only rule by convention
     @Test
     @DisplayName("Final Block: AuditLogEntity exposes no setters - the append-only contract is enforced at the Java layer, not just by convention - [MEANT TO PASS]")
     void testFinalAC_auditLogEntityHasNoSetters() {

@@ -1,3 +1,4 @@
+# profile service deployment, owns kyc status, contact info and alert/summary preferences
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,6 +24,8 @@ spec:
                 name: banking-global-config
             - secretRef:
                 name: banking-db-secret
+          # needs kafka since it publishes profileupdatedevent and kycstatusupdatedevent for
+          # the audit and notification services to pick up
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka.banking-app.svc.cluster.local:9092"

@@ -1,4 +1,4 @@
-
+# account service deployment, this is the workload that serves the dashboard and transaction history apis
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,12 +19,15 @@ spec:
           image: your-docker-registry/account-service:latest
           ports:
             - containerPort: 8080
+          # pulls in the shared config values plus the db username and password from the secret
           envFrom:
             - configMapRef:
                 name: banking-global-config
             - secretRef:
                 name: banking-db-secret
 ---
+# internal only service, clusterip since nothing outside the cluster talks to this directly,
+# all external traffic comes in through the ingress instead
 apiVersion: v1
 kind: Service
 metadata:

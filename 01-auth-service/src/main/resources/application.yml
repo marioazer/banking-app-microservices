@@ -1,3 +1,5 @@
+# local dev profile, this is the default one spring boot loads when nothing else is specified,
+# points straight at the docker-compose postgres and kafka containers running on localhost
 spring:
   application:
     name: 01-auth-service
@@ -8,10 +10,15 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # update is fine for local dev so the schema just evolves as I change entities,
+      # application-prod.yml below uses validate instead so nothing auto migrates in a real environment
       ddl-auto: update
     show-sql: true
   kafka:
+    # falls back to localhost:9092 if the env var is not set, so this still works with plain
+    # docker-compose up and no extra config needed
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 server:
+  # each service gets its own port locally so they can all run side by side on one machine
   port: 8081

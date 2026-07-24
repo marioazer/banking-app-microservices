@@ -17,9 +17,11 @@ metadata:
   name: banking-global-config
   namespace: banking-app
 
+# non secret values every service needs, the actual db credentials live in the secret instead
 data:
   SPRING_PROFILES_ACTIVE: "prod"
   DB_NAME: "banking"
   DB_PORT: "5432"
 
+  # placeholder rds endpoint, this would point at the real managed postgres instance once its provisioned
   DB_HOST: "banking-postgres-db.c1234567890.us-east-1.rds.amazonaws.com"

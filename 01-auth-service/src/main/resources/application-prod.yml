@@ -1,3 +1,6 @@
+# prod profile, activated by SPRING_PROFILES_ACTIVE=prod which comes from the k8s global configmap
+# every value here is pulled from env vars instead of hardcoded, those env vars get populated by
+# k8s/01-namespace-config.yaml (configmap) and k8s/02-secrets.yaml (secret) through envFrom
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -6,15 +9,20 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
+      # validate instead of update here, in a real environment I want the schema managed by migrations,
+      # not silently altered by hibernate on startup
       ddl-auto: validate
     show-sql: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
 
+# jwt signing key for this service specifically, comes from the same k8s secret as the db credentials
 application:
   security:
     jwt:
       secret-key: ${JWT_SECRET_KEY}
 
 server:
+  # all services listen on 8080 inside their own container, the k8s service objects are what give
+  # each one a distinct address, so there is no port collision to worry about like there is locally
   port: 8080

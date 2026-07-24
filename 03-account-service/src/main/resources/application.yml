@@ -1,3 +1,6 @@
+# local dev profile, same shared docker-compose postgres as the rest of the services
+# no kafka block here since account-service does not publish or consume any events, it only
+# serves the dashboard and transaction history reads
 spring:
   application:
     name: 03-account-service

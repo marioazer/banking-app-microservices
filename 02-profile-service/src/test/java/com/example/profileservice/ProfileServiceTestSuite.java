@@ -81,6 +81,10 @@ class ProfileServiceTestSuite {
 
     private UserProfile mockUser;
 
+    // shared fixture that runs before every test, builds one baseline user profile to reuse
+    // I give it a real id, phone number and address so downstream code has real looking data to work with
+    // kyc status starts out pending since that is the default state a brand new profile should be in
+    // individual tests below are free to mutate this mockUser further before their own assertions run
     @BeforeEach
     void setUp() {
         mockUser = new UserProfile();
@@ -97,6 +101,10 @@ class ProfileServiceTestSuite {
        USER STORY 3.1: Initial "Pending" State Enforcement
        ========================================================== */
 
+    // checking what happens when someone asks for the kyc status of a user id that does not exist
+    // stub the repository so looking up id 999 comes back completely empty
+    // hit the kyc-status endpoint for that same missing id
+    // right now that surfaces as a 500 since nothing catches the missing user case gracefully yet
     @Test
     @DisplayName("Block 1: Query KYC Status Returns Error for Non-Existent User - [MEANT TO FAIL]")
     void testBlock1_GetKycStatus_UserNotFound_ReturnsError() throws Exception {
@@ -106,6 +114,10 @@ class ProfileServiceTestSuite {
                 .andExpect(status().isInternalServerError());
     }
 
+    // happy path check that the kyc-status endpoint reports back whatever state the user is actually in
+    // stub the repository so looking up user 100 returns our fixture user from setUp
+    // hit the kyc-status endpoint for that user
+    // expect a 200 ok and the status field to say pending_verification, matching the fixture
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Query Active KYC Status - [MEANT TO PASS]")
     void testFinalAC_GetKycStatus_ReturnsCurrentPendingState() throws Exception {
@@ -120,6 +132,11 @@ class ProfileServiceTestSuite {
        USER STORY 3.2: Async Webhook for KYC Approval
        ========================================================== */
 
+    // making sure the kyc webhook refuses a request with no signature header at all
+    // build a normal looking webhook payload for a user being approved
+    // post it straight to the webhook endpoint without adding the x-signature header
+    // it should be rejected with 401 unauthorized
+    // and the error message should call out specifically that the signature header is missing
     @Test
     @DisplayName("Block 1: Webhook Rejects Request Missing HMAC Signature Header - [MEANT TO FAIL]")
     void testBlock1_Webhook_MissingSignature_Returns401() throws Exception {
@@ -132,6 +149,11 @@ class ProfileServiceTestSuite {
                 .andExpect(jsonPath("$.error").value("Missing X-Signature header"));
     }
 
+    // similar to the last test but this time a signature header is present, it is just wrong
+    // build the same kind of webhook payload as before
+    // post it along with a made up x-signature value that was never actually computed with the real key
+    // it should still be rejected with 401 unauthorized
+    // and the error message this time should say the signature itself is invalid, not missing
     @Test
     @DisplayName("Block 2: Webhook Rejects Invalid HMAC Signature - [MEANT TO FAIL]")
     void testBlock2_Webhook_InvalidSignature_Returns401() throws Exception {
@@ -145,6 +167,12 @@ class ProfileServiceTestSuite {
                 .andExpect(jsonPath("$.error").value("Invalid webhook signature"));
     }
 
+    // happy path for the webhook, this time the signature is computed correctly
+    // stub the repository to return our fixture user so there is something to update
+    // build the payload then run it through the same hmac sha256 algorithm the real vendor would use
+    // post the payload along with that correctly computed signature header
+    // expect a plain 200 ok back
+    // then confirm the user's kyc status actually flipped to approved and got saved
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Valid Webhook Updates KYC to APPROVED - [MEANT TO PASS]")
     void testFinalAC_Webhook_ValidSignature_UpdatesKycToApproved() throws Exception {
@@ -167,6 +195,10 @@ class ProfileServiceTestSuite {
        USER STORY 3.3: Broadcasting the Status Change (Kafka)
        ========================================================== */
 
+    // checking that re-processing the same status does not spam out a duplicate kafka event
+    // set the fixture user's kyc status to approved already, like the webhook already ran once before
+    // call processkycwebhook again with that exact same approved status
+    // since nothing actually changed, kafkatemplate.send should never get called at all
     @Test
     @DisplayName("Block 1: Process Webhook Status Unchanged Does Not Broadcast Kafka Event - [MEANT TO PASS]")
     void testBlock1_ProcessWebhook_StatusUnchanged_IdempotentNoKafkaEvent() {
@@ -178,6 +210,11 @@ class ProfileServiceTestSuite {
         verify(kafkaTemplate, never()).send(any(), any(), any());
     }
 
+    // this time the status is actually changing so a kafka event should go out
+    // fixture user starts out pending from setUp, so approving it is a real transition
+    // call processkycwebhook with approved as the new status
+    // verify the user profile got saved with the new status
+    // and verify a kycstatusupdatedevent was published to the kyc-events topic keyed by user id
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - KYC Status Transition Broadcasts Kafka Event - [MEANT TO PASS]")
     void testFinalAC_ProcessWebhook_StatusChanged_PublishesKycStatusUpdatedEvent() {
@@ -193,6 +230,11 @@ class ProfileServiceTestSuite {
        USER STORY 3.4: Manual Admin Override
        ========================================================== */
 
+    // making sure a compliance officer cannot manually override kyc status without giving a real reason
+    // withmockuser here simulates a logged in compliance officer, user id 500 with the right role
+    // build a request where the reason field is just blank spaces, not an actual explanation
+    // patch it to the admin kyc override endpoint
+    // expect a 400 bad request with an error saying the override reason is mandatory
     @Test
     @DisplayName("Block 1: Admin Override Fails When Reason Text is Blank - [MEANT TO FAIL]")
     @WithMockUser(username = "500", roles = {"COMPLIANCE_OFFICER"})
@@ -206,6 +248,13 @@ class ProfileServiceTestSuite {
                 .andExpect(jsonPath("$.error").value("Override reason is mandatory"));
     }
 
+    // happy path for a compliance officer manually overriding a user's kyc status with a real reason
+    // stub the repository to return the fixture user so there is something to actually update
+    // this time give a real reason string, manual verification of a physical passport
+    // patch that request to the admin override endpoint as the mocked compliance officer
+    // expect 200 ok with a message confirming the manual override happened
+    // then confirm three separate side effects, an audit log entry got saved, the profile got saved,
+    // and a kafka event went out on kyc-events so other services hear about the change
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Admin Override Updates DB, Audits, and Broadcasts Kafka Event - [MEANT TO PASS]")
     @WithMockUser(username = "500", roles = {"COMPLIANCE_OFFICER"})
@@ -229,6 +278,11 @@ class ProfileServiceTestSuite {
        USER STORY 4.1: Secure Profile Update API
        ========================================================== */
 
+    // checking validation on the contact info update endpoint rejects a bad phone number format
+    // withmockuser simulates the logged in owner of profile 100 making this request themselves
+    // build a dto with an obviously invalid phone value alongside otherwise normal address fields
+    // put that dto to the contact-info endpoint
+    // expect a 400 bad request since the phone number does not match the expected international format
     @Test
     @DisplayName("Block 1: Contact Info Update Rejects Invalid International Phone Format - [MEANT TO FAIL]")
     @WithMockUser(username = "100")
@@ -246,6 +300,13 @@ class ProfileServiceTestSuite {
                 .andExpect(status().isBadRequest());
     }
 
+    // happy path for updating contact info with an actually valid dto
+    // stub the repository so user 100 resolves to our fixture profile
+    // build a dto with a properly formatted phone number and a new address
+    // put that to the contact-info endpoint as the same logged in user
+    // expect 200 ok with a profile updated successfully message
+    // then confirm the in memory mockUser object itself picked up the new phone and address
+    // and that the repository actually got told to save it
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Valid Contact Info Update Persists to Database - [MEANT TO PASS]")
     @WithMockUser(username = "100")
@@ -274,6 +335,11 @@ class ProfileServiceTestSuite {
        USER STORY 4.2: Broadcasting the Profile Update Event
        ========================================================== */
 
+    // this one calls the service layer directly instead of going through mockmvc
+    // stub the repository so user 100 resolves to the fixture profile
+    // build a contact info dto with new values and call updatecontactinfo on the service
+    // afterward verify a profileupdatedevent got published to the profile-events topic keyed by user id
+    // this is the event the audit service and notification service both end up listening for downstream
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Profile Update Publishes ProfileUpdatedEvent to Kafka - [MEANT TO PASS]")
     void testFinalAC_UpdateContactInfo_PublishesProfileUpdatedEventToKafka() {
@@ -295,6 +361,12 @@ class ProfileServiceTestSuite {
        USER STORY 9.1: User Preference Management (Alert Threshold)
        ========================================================== */
 
+    // checking the basic happy path for setting an alert threshold for the first time
+    // withmockuser here includes the scope_full_auth authority since this endpoint requires a full session
+    // stub the preference repository so this user has no existing preference row yet
+    // put a simple dto with just a dollar amount to the threshold endpoint
+    // expect 200 ok back
+    // then confirm the saved entity has the right user id and the right threshold amount attached
     @Test
     @DisplayName("Block: Update alert threshold with a valid payload persists the preference - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -313,6 +385,12 @@ class ProfileServiceTestSuite {
         verify(preferenceRepository).save(argThat(entity -> entity.getAlertThresholdAmount().compareTo(new BigDecimal("250.00")) == 0));
     }
 
+    // confirming the threshold endpoint no longer needs the daily summary fields tagging along
+    // stub the repository so this user has no existing preference row saved yet
+    // send a raw json payload with only the alertthresholdamount key and nothing else
+    // expect 200 ok since the dto for this endpoint is now split from the daily summary one
+    // then check that a brand new user still gets sane defaults for the untouched fields,
+    // a hundred dollar default is not what we check here, just that summary is off and timezone is utc
     @Test
     @DisplayName("Block (fixed): Threshold-only payload is sufficient - daily-summary fields are no longer required - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -337,6 +415,12 @@ class ProfileServiceTestSuite {
         verify(preferenceRepository).save(argThat(entity -> "UTC".equals(entity.getTimezone())));
     }
 
+    // making sure updating just the threshold does not clobber daily summary settings someone already set
+    // build an existing preference entity by hand with daily summary already turned on and a real timezone
+    // stub the repository to return that existing row when this user is looked up
+    // put a new threshold value to the threshold endpoint
+    // expect 200 ok
+    // then confirm the new threshold saved but the daily summary flag and timezone are exactly as before
     @Test
     @DisplayName("Block: Updating the threshold leaves an existing daily-summary preference untouched - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -361,6 +445,10 @@ class ProfileServiceTestSuite {
         verify(preferenceRepository).save(argThat(entity -> "Europe/London".equals(entity.getTimezone())));
     }
 
+    // checking that a made up timezone string gets rejected instead of silently accepted
+    // build a daily summary dto with enabled true but a timezone value that is not a real iana zone
+    // put that to the daily-summary endpoint
+    // expect a 400 bad request since the timezone has to be a real identifier like america/new_york
     @Test
     @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -378,6 +466,13 @@ class ProfileServiceTestSuite {
        USER STORY 10.1: Opt-in Preferences (Daily Balance Summary)
        ========================================================== */
 
+    // happy path for opting into the daily balance summary email with a real timezone
+    // stub the repository so this user has no existing preference row yet
+    // build a dto with enabled true and a real iana timezone, europe/london
+    // put that to the daily-summary endpoint
+    // expect 200 ok, and this endpoint intentionally returns a plain string not json, so we check
+    // that the jsonpath for a message field simply does not exist rather than expecting real json
+    // last confirm the saved entity has the right user id, enabled flag and timezone
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Daily summary opt-in persists enabled flag and timezone - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -398,6 +493,12 @@ class ProfileServiceTestSuite {
         verify(preferenceRepository).save(argThat(entity -> "Europe/London".equals(entity.getTimezone())));
     }
 
+    // the mirror image of the earlier test, this time daily summary changes should not touch the threshold
+    // build an existing preference entity by hand with a real threshold value already set
+    // stub the repository to return that existing row for this user
+    // put new daily summary settings, enabled true with a different timezone, asia/tokyo
+    // expect 200 ok
+    // then confirm the threshold amount saved is untouched while summary and timezone did update
     @Test
     @DisplayName("Block: Updating daily-summary settings leaves an existing alert threshold untouched - [MEANT TO PASS]")
     @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
@@ -422,6 +523,11 @@ class ProfileServiceTestSuite {
         verify(preferenceRepository).save(argThat(entity -> "Asia/Tokyo".equals(entity.getTimezone())));
     }
 
+    // checking that hitting the alert preference endpoints without a proper session is rejected
+    // notice there is no withmockuser annotation on this one at all, unlike the other preference tests
+    // build a normal looking threshold dto anyway
+    // put it to the threshold endpoint with no authentication attached
+    // expect some kind of 4xx client error back, matching the class level preauthorize check on the controller
     @Test
     @DisplayName("Block: Pre-Auth token is denied on alert preference endpoints - [MEANT TO FAIL]")
     void testBlock_AlertPreferences_Unauthenticated_Denied() throws Exception {

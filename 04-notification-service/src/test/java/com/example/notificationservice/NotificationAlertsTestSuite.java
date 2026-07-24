@@ -68,6 +68,9 @@ class NotificationAlertsTestSuite {
     private static final Instant EIGHT_AM_NEW_YORK = Instant.parse("2024-01-15T13:00:00Z");
     private static final String NEW_YORK_ZONE = "America/New_York";
 
+    // runs before every test, pins the mocked clock to a fixed instant, 8am new york time in january
+    // this makes dailybalancesummaryjob's timezone scan deterministic instead of depending on
+    // whatever the real wall clock happens to be when the test suite runs
     @BeforeEach
     void setUpClock() {
         given(clock.instant()).willReturn(EIGHT_AM_NEW_YORK);
@@ -77,6 +80,13 @@ class NotificationAlertsTestSuite {
        USER STORY 9.2: Kafka Consumer for Transaction Events
        ========================================================== */
 
+    // checking that a transfer at or above the user's alert threshold actually triggers an email
+    // build a fundstransferredevent, using userId 42 but deliberately different account ids, 501 and 502,
+    // so this test cannot pass by accident if the listener code regresses to reading an account id instead
+    // stub the user's preferences with a hundred dollar threshold, well below the 150 dollar transfer
+    // call consumetransferevent directly like the kafka listener would
+    // verify an email got dispatched to this specific user's address
+    // and verify the listener never mistakenly looked up preferences using the account id instead
     @Test
     @DisplayName("Block 1: Transaction at/above the user's threshold dispatches an alert - [MEANT TO PASS]")
     void testBlock1_transferAtOrAboveThreshold_dispatchesAlert() {
@@ -93,6 +103,10 @@ class NotificationAlertsTestSuite {
         verify(profileServiceClient, never()).getUserPreferences(501L);
     }
 
+    // the flip side of the last test, a small transfer that should stay under the radar
+    // build an event for a fifty dollar transfer, below the stubbed hundred dollar threshold
+    // call consumetransferevent directly
+    // verify dispatchemail never got called at all, since the amount never crossed the threshold
     @Test
     @DisplayName("Block 2: Transaction below the user's threshold does not dispatch an alert - [MEANT TO PASS]")
     void testBlock2_transferBelowThreshold_noAlert() {
@@ -106,6 +120,10 @@ class NotificationAlertsTestSuite {
         verify(notificationProviderService, never()).dispatchEmail(any(), any(), any());
     }
 
+    // defensive check for when the profile service has no preferences on file for this user at all
+    // stub getuserpreferences to return null, like a user who never set up alert preferences
+    // call consumetransferevent and expect it to not throw any exception
+    // then verify no email attempt was made either, since there is nothing to base a threshold check on
     @Test
     @DisplayName("Block 3: Missing preferences skips the alert without throwing - [MEANT TO PASS]")
     void testBlock3_missingPreferences_skipsAlertGracefully() {
@@ -118,6 +136,11 @@ class NotificationAlertsTestSuite {
         verify(notificationProviderService, never()).dispatchEmail(any(), any(), any());
     }
 
+    // making sure a downstream outage in the profile service does not take down the kafka consumer thread
+    // stub getuserpreferences to throw a runtime exception, simulating profile service being unreachable
+    // call consumetransferevent and expect it to not throw anything back out
+    // then verify no email attempt was made, since we could not even check the threshold in the first place
+    // a single bad event or a temporary outage should never kill the whole consumer loop
     @Test
     @DisplayName("Block 4: Profile Service failure is swallowed so the Kafka consumer thread survives - [MEANT TO PASS]")
     void testBlock4_profileServiceFailure_doesNotCrashListener() {
@@ -137,6 +160,12 @@ class NotificationAlertsTestSuite {
        has to guess. This replaces the old test that documented the conflation as a gap.)
        ========================================================== */
 
+    // regression test making sure the listener uses the real userId field, not one of the account ids
+    // build an event with userId 777 and two very different looking account ids, 111 and 222
+    // stub preferences only for user 777, leaving 111 and 222 completely unstubbed on purpose
+    // call consumetransferevent
+    // verify preferences got looked up for 777 specifically, and never for either account id
+    // then confirm the email still went out correctly to that user's address
     @Test
     @DisplayName("Block 5: Listener queries preferences by the event's userId, never by an account ID - [MEANT TO PASS]")
     void testBlock5_listenerUsesUserIdNotAccountId() {
@@ -161,6 +190,13 @@ class NotificationAlertsTestSuite {
        USER STORY 10.2: Scheduled Job for Balance Aggregation
        ========================================================== */
 
+    // checking the scheduled daily summary job actually emails users who are opted in and have a balance
+    // thanks to the clock stub in setUpClock this always looks like 8am in america/new_york,
+    // so we know exactly which timezone string the job is going to query for, no guessing needed
+    // stub the profile service to return one opted in user for that timezone
+    // stub the account service to return an aggregate balance for that same user
+    // call processdailysummaries directly, the same way the scheduler would trigger it
+    // verify the timezone lookup happened exactly once, and that one summary email actually went out
     @Test
     @DisplayName("Block 7: Opted-in users with a matching balance receive a summary email - [MEANT TO PASS]")
     void testBlock7_optedInUsersWithBalance_receiveSummaryEmail() {
@@ -181,6 +217,11 @@ class NotificationAlertsTestSuite {
                 .dispatchEmail(eq("user_100@bank.com"), anyString(), anyString());
     }
 
+    // making sure an empty opted in list short circuits instead of doing pointless downstream work
+    // stub the profile service to return an empty list no matter what timezone gets asked for
+    // call processdailysummaries
+    // verify the account service balance lookup never got called at all
+    // and verify no email attempt was made either, since there was nobody to send one to
     @Test
     @DisplayName("Block 8: No opted-in users means no downstream balance lookup or email - [MEANT TO PASS]")
     void testBlock8_noOptedInUsers_noDownstreamCalls() {
@@ -193,6 +234,11 @@ class NotificationAlertsTestSuite {
         verify(notificationProviderService, never()).dispatchEmail(any(), any(), any());
     }
 
+    // edge case where the profile service knows about a user but the account service has no balance for them
+    // stub the profile service to return one opted in user
+    // stub the account service's batch balance lookup to come back completely empty for that user
+    // call processdailysummaries and expect no exception, this is an in memory join that has to handle gaps
+    // then verify no email attempt was made for a user with no balance data to actually report
     @Test
     @DisplayName("Block 9: A user with no matching balance entry is skipped, not errored - [MEANT TO PASS]")
     void testBlock9_userWithoutMatchingBalance_isSkipped() {
@@ -211,6 +257,11 @@ class NotificationAlertsTestSuite {
        USER STORY 10.3: Error Isolation Per Timezone
        ========================================================== */
 
+    // making sure one timezone's outage cannot take down the entire daily summary sweep for every region
+    // stub the profile service so looking up users for any timezone string just throws
+    // call processdailysummaries and expect it to not throw anything back out to the scheduler
+    // then verify no email attempt was made, since nothing could be looked up in this failure scenario
+    // the real job wraps each timezone in its own try/catch so one region's problem stays contained
     @Test
     @DisplayName("Final Block: A failure looking up one timezone's users does not abort the sweep - [MEANT TO PASS]")
     void testFinalAC_timezoneFailure_isolatedAndDoesNotPropagate() {

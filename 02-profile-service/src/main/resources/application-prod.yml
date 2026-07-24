@@ -1,3 +1,5 @@
+# prod profile, same env var driven pattern as the other services, all values come from the
+# k8s configmap and secret rather than being written directly in this file
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -11,6 +13,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
 
+# this is the hmac secret KycWebhookFilter uses to verify a webhook actually came from the real kyc vendor
 kyc:
   vendor:
     webhook:

@@ -1,7 +1,8 @@
 # the actual code for the terraform main file
 # code for terraform/main.tf 
 
-# this is the vpc network module
+# this is the vpc network module, using the official terraform-aws-modules vpc module instead
+# of hand rolling every subnet and route table myself
 
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
@@ -11,19 +12,23 @@ module "vpc" {
   name = "banking-vpc"
   cidr = "10.0.0.0/16"
 
+  # spreading across two azs for basic availability, not going wider than that for this project
   azs = ["${var.aws_region}a", "${var.aws_region}b"]
 
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 
+  # separate dedicated subnets just for rds, keeps the database off the same subnets as the eks nodes
   database_subnets             = ["10.0.201.0/24", "10.0.202.0/24"]
   create_database_subnet_group = true
 
 
+  # single nat gateway to keep cost down for now, a real prod setup would want one per az for redundancy
   enable_nat_gateway   = true
   single_nat_gateway   = true
   enable_dns_hostnames = true
 
+  # these tags are what let the aws load balancer controller auto discover which subnets to use
   public_subnet_tags = {
     "kubernetes.io/role/elb" = "1"
   }
@@ -33,14 +38,14 @@ module "vpc" {
   }
 }
 
-# db security group 
-
+# db security group, this is the firewall rule layer that decides who can even reach the database
 resource "aws_security_group" "rds_sg" {
   name        = "banking-rds-sg"
   description = "Allow inbound traffic from EKS worker nodes to PostgreSQL RDS"
 
   vpc_id = module.vpc.vpc_id
 
+  # only the eks worker node security group can reach postgres, nothing else in or outside the vpc
   ingress {
     description = "PostgreSQL from EKS"
     from_port   = 5432
@@ -50,6 +55,7 @@ resource "aws_security_group" "rds_sg" {
     security_groups = [module.eks.node_security_group_id]
   }
 
+  # wide open egress, the db just needs to be able to respond and reach out for things like patches
   egress {
     description = "Allow all outbound traffic"
 
@@ -60,11 +66,11 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-# aws rds postgres database 
-
+# aws rds postgres database, this is the real managed database behind the DB_HOST value in the k8s configmap
 resource "aws_db_instance" "banking_db" {
   identifier = "banking-postgres-db"
 
+  # starts small with room to autoscale storage up to 40gb as data grows, instead of over provisioning up front
   allocated_storage      = 10
   max_allocated_storage  = 40
   engine                 = "postgres"
@@ -76,12 +82,13 @@ resource "aws_db_instance" "banking_db" {
   db_subnet_group_name   = module.vpc.database_subnet_group_name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
+  # fine for a dev/learning project, skipping the final snapshot on destroy, would flip this for real prod data
   skip_final_snapshot = true
+  # never publicly reachable, only the eks nodes inside the vpc can get to it through the security group above
   publicly_accessible = false
 }
 
-# aws eks kubernetes cluster module
-
+# aws eks kubernetes cluster module, this is what all six services actually run on top of
 module "eks" {
   source = "terraform-aws-modules/eks/aws"
 
@@ -90,11 +97,13 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = "1.30"
 
+  # public endpoint access so kubectl works from my own machine without a vpn or bastion host set up
   cluster_endpoint_public_access = true
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
+  # one managed node group, scales between 2 and 4 nodes depending on load, starting at 2 to keep cost down
   eks_managed_node_groups = {
     primary_nodes = {
       min_size     = 2

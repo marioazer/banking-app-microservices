@@ -1,3 +1,4 @@
+# local dev profile, points at the same docker-compose postgres and kafka every other service uses locally
 spring:
   application:
     name: 02-profile-service
@@ -14,4 +15,5 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 server:
+  # own port so this can run alongside auth-service and the rest locally without clashing
   port: 8082

@@ -1,3 +1,5 @@
+# notification service deployment, listens on kafka for transfer/profile events and sends alert emails,
+# only running one replica since this is a background worker, not something that takes direct traffic
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,6 +20,8 @@ spec:
           image: your-docker-registry/notification-service:latest
           ports:
             - containerPort: 8080
+          # this one skips envFrom on purpose, no db credentials needed since it has no database of its own,
+          # just kafka to consume events and redis, probably for retry/rate limit state down the line
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka.banking-app.svc.cluster.local:9092"
@@ -26,6 +30,7 @@ spec:
             - name: REDIS_PORT
               value: "6379"
 ---
+# clusterip even though nothing external hits this service directly, keeping it consistent with the others
 apiVersion: v1
 kind: Service
 metadata:

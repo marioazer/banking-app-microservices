@@ -32,6 +32,11 @@ class AuthServiceApplicationTests {
     @MockBean
     private KafkaTemplate<String, String> kafkaTemplate;
 
+    // this is just the basic sanity test spring boot generates by default
+    // it spins up the whole application context using an in memory h2 db instead of the real one
+    // the security beans and kafka template are mocked out here so nothing tries to hit a real broker
+    // if the app context fails to wire together for any reason this test fails
+    // and thats really all it checks, no assertions needed since a failed startup will throw on its own
     @Test
     void contextLoads() {
     }

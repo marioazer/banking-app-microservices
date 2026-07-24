@@ -1,25 +1,33 @@
-#kafka broker configuration
+# kafka broker configuration, used with the bitnami/kafka chart
+# e.g. helm install kafka bitnami/kafka -f helm/01-kafka-values.yaml -n banking-app
 
+# keeping this to a single broker for now, this is not meant to be a production grade cluster yet
 replicaCount: 1
 
+# tuning the jvm heap down since this is running on a small dev/test size node, not a beefy prod one
 heapOpts: "-Xmx512m -Xms512m"
 
+# letting kafka auto create topics on first publish instead of pre declaring every topic by hand,
+# fine for this stage of the project, would probably turn this off once things stabilize
 extraEnvVars:
   - name:  KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
     value: "true"
 
+# plaintext listener since this is all internal cluster traffic behind the vpc, no tls needed here yet
 listeners:
   client:
     containerPort: 9092
     protocol: PLAINTEXT
 
+# persisting the broker's data so a pod restart does not wipe out whatever was queued
 persistence:
   enabled: true
   size: 8Gi
   accessModes:
     - ReadWriteOnce
 
-resources: 
+# requests are what the pod is guaranteed, limits are the ceiling before it gets throttled or killed
+resources:
   requests:
     cpu: 250m
     memory: 512Mi
@@ -28,12 +36,14 @@ resources:
     cpu: 500m
     memory: 1024Mi
 
+# this chart version still relies on zookeeper instead of kraft mode, giving it its own small persistent
+# volume and a lighter resource footprint since it is just coordinating the broker, not doing real work
 zookeeper:
   enabled: true
   replicaCount: 1
   persistence:
     enabled: true
-    size: 4Gi 
+    size: 4Gi
   resources:
     requests:
       cpu: 100m

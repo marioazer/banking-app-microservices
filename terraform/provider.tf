@@ -32,7 +32,8 @@ provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
 
-
+  # instead of a static kubeconfig token, this shells out to the aws cli to fetch a short lived
+  # eks token on demand, so credentials never need to be stored or rotated by hand
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"

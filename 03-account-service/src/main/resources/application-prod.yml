@@ -1,3 +1,4 @@
+# prod profile, db credentials come from the k8s secret, same as every other service
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}

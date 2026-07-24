@@ -45,6 +45,13 @@ class AuthDatabaseSchemaTestSuite {
        TABLE 1: recognized_devices CONSTRAINTS & QUERIES
        ========================================================== */
 
+    // this one is testing the unique constraint on the device_hash column
+    // first I save a device with a hash so there is already a row sitting in the table
+    // then I make a second device object using that exact same hash string
+    // when I try to save that second one the database should reject it
+    // spring wraps the raw sql constraint error so I check for either the generic
+    // data integrity exception or the hibernate specific constraint one, since it
+    // can come back as either depending on the driver
     @Test
     @DisplayName("Table 1: Enforce UNIQUE constraint on device_hash - [MEANT TO PASS]")
     void testRecognizedDevice_UniqueHashConstraint() {
@@ -64,6 +71,11 @@ class AuthDatabaseSchemaTestSuite {
         );
     }
 
+    // this one checks the custom repository method findbyuseridanddevicehash
+    // I save one device tied to a user id and a hash value
+    // then call the repository method with that same user id and hash
+    // it should find the row and come back wrapped in a non empty optional
+    // and the user id on the entity that comes back should match what I saved
     @Test
     @DisplayName("Table 1: Query findByUserIdAndDeviceHash retrieves correct record - [MEANT TO PASS]")
     void testRecognizedDevice_MagicMethodQuery() {
@@ -83,6 +95,12 @@ class AuthDatabaseSchemaTestSuite {
        TABLE 2: two_factor_codes DELETION & RETRIEVAL
        ========================================================== */
 
+    // testing the deletebyuserid query on the two factor code table
+    // I persist one active 2fa code for a user first
+    // then call deletebyuserid which is a custom modifying query, not a default jpa method
+    // after flushing I look the code up again by that same user id
+    // it should come back empty since the row was actually removed from the db and
+    // not just marked as something else
     @Test
     @DisplayName("Table 2: deleteByUserId purges active 2FA codes - [MEANT TO PASS]")
     void testTwoFactorCode_DeleteByUserId() {
@@ -103,6 +121,12 @@ class AuthDatabaseSchemaTestSuite {
        TABLE 3: refresh_tokens REVOCATION QUERY
        ========================================================== */
 
+    // this one is for the bulk revoke query on refresh tokens
+    // I create two refresh tokens for the same user and persist both of them
+    // then call revokealluserstokens which should flip the revoked flag on both rows at once
+    // I clear the entity manager after that so I am not reading a cached copy out of the l1 cache
+    // then pull one of the tokens back up by its hash and confirm revoked is true
+    // and that isvalid() also reports false, since a revoked token should never read as valid
     @Test
     @DisplayName("Table 3: revokeAllUserTokens flips revoked flag for active tokens - [MEANT TO PASS]")
     void testRefreshToken_RevokeAllUserTokens() {
@@ -128,6 +152,11 @@ class AuthDatabaseSchemaTestSuite {
        TABLE 4: revoked_jwt_blacklist PURGE QUERY
        ========================================================== */
 
+    // this test is for the cron style cleanup query that purges expired blacklist entries
+    // I make one token that already expired ten minutes ago and one that is still good for ten more minutes
+    // both get persisted so the table has one of each kind sitting in it
+    // then I call deleteallexpiredtokenssince with the current time, which should only touch the expired one
+    // after that I check that the expired jti no longer exists but the still active one is untouched
     @Test
     @DisplayName("Table 4: deleteAllExpiredTokensSince purges naturally expired JWT JTIs - [MEANT TO PASS]")
     void testBlacklistedToken_PurgeExpired() {

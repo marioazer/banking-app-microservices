@@ -1,3 +1,5 @@
+# prod profile, redis host here points at the in cluster redis-master service from the bitnami
+# helm chart, matching REDIS_HOST set directly in k8s/07-notification-service.yaml
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}

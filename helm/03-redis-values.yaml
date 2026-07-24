@@ -3,8 +3,10 @@
 # matching REDIS_HOST in k8s/07-notification-service.yaml
 # e.g. helm install redis bitnami/redis -f helm/03-redis-values.yaml -n banking-app
 
+# single master, no replicas or sentinel, this is just a cache not the system of record for anything
 architecture: standalone
 
+# no password since this only sits inside the cluster network, nothing external ever talks to it directly
 auth:
   enabled: false
 
@@ -21,5 +23,6 @@ master:
       cpu: 250m
       memory: 256Mi
 
+# zero replicas on purpose, if this pod goes down the cache just gets rebuilt from source on next read
 replica:
   replicaCount: 0

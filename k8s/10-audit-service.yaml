@@ -1,6 +1,7 @@
 # audit-service has no public REST API (see AuditLogRepository/ProfileAuditListener) -
 # it only consumes Kafka events, so it's not routed via the ingress.
 
+# only one replica since this is just a kafka consumer writing append only rows, no need to scale it out yet
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,10 +27,12 @@ spec:
                 name: banking-global-config
             - secretRef:
                 name: banking-db-secret
+          # this is the important one for this service, it exists purely to consume profile-events off kafka
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka.banking-app.svc.cluster.local:9092"
 ---
+# still exposing a clusterip even though there is no real api, spring boot needs a port for actuator/health checks
 apiVersion: v1
 kind: Service
 metadata:

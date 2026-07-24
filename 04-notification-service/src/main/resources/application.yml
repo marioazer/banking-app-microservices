@@ -1,3 +1,4 @@
+# local dev profile, points at the docker-compose postgres, kafka and redis all running on localhost
 spring:
   application:
     name: 04-notification-service
@@ -12,6 +13,7 @@ spring:
     show-sql: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  # the only service with a redis block, backs whatever caching ProfileServiceClient does with @cacheable
   data:
     redis:
       host: ${REDIS_HOST:localhost}

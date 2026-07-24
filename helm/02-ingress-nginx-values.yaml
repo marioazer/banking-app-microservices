@@ -1,11 +1,16 @@
-controller: 
-  name: controller 
+# values for the ingress-nginx chart, this is what actually terminates traffic coming into the cluster
+# e.g. helm install ingress-nginx ingress-nginx/ingress-nginx -f helm/02-ingress-nginx-values.yaml -n banking-app
+controller:
+  name: controller
   replicaCount: 1
 
+  # makes sure the ingress objects get their address populated once the load balancer is ready
   publishService:
     enabled: true
 
-  service: 
+  # these annotations are what actually provision a real aws network load balancer instead of a
+  # classic elb, internet facing since this is meant to accept real inbound traffic from outside the vpc
+  service:
     enabled: true
     type: LoadBalancer
     annotations:
@@ -22,7 +27,8 @@ controller:
       cpu: 250m
       memory: 256Mi
 
-  metrics: 
+  # metrics on but no servicemonitor yet, would need a prometheus operator installed to actually scrape these
+  metrics:
     enabled: true
     serviceMonitor:
       enabled: false
