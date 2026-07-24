@@ -19,6 +19,8 @@ spec:
           image: your-docker-registry/profile-service:latest
           ports:
             - containerPort: 8080
+          # envFrom vs env still trips me up sometimes, envFrom bulk loads every key from the
+          # configmap/secret below, env is for setting one specific named variable by hand instead
           envFrom:
             - configMapRef:
                 name: banking-global-config

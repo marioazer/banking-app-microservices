@@ -1,5 +1,7 @@
 # notification service deployment, listens on kafka for transfer/profile events and sends alert emails,
 # only running one replica since this is a background worker, not something that takes direct traffic
+# still learning how replicas plays with a worker like this, since nothing calls it directly, one
+# copy is enough for now, could bump it later purely to keep processing kafka messages faster
 apiVersion: apps/v1
 kind: Deployment
 metadata:

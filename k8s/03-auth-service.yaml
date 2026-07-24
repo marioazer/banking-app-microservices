@@ -1,6 +1,8 @@
 # this yaml file is for microservice auth service (01-auth-service)
 
 # auth service deployment this will be the workload
+# a deployment is what actually keeps pods running, replicas below tells it how many copies
+# to maintain, if one crashes kubernetes notices and starts a new one to replace it automatically
 
 apiVersion: apps/v1
 kind: Deployment
@@ -9,6 +11,8 @@ metadata:
   namespace: banking-app
 spec:
   replicas: 2
+  # selector.matchLabels is how this deployment knows which pods belong to it, has to match
+  # the labels set on the pod template right below or kubernetes has no way to tie them together
   selector:
     matchLabels:
       app: auth-service
@@ -26,6 +30,8 @@ spec:
           ports:
             - containerPort: 8080
           # this is where we import the namespace configmap and the secret I just built
+          # envFrom dumps every key in the configmap/secret in as an env var automatically,
+          # different from the single named env entry below where I set one var by hand
           envFrom:
             - configMapRef:
                 name: banking-global-config
@@ -36,6 +42,8 @@ spec:
               value: "kafka.banking-app.svc.cluster.local:9092"
 ---
 # this is the internal balancer aka the auth service network router
+# a service gives a stable dns name and address to a moving target, pods get recreated with new
+# ips all the time, the service is what stays constant so other things can always find this one
 apiVersion: v1
 kind: Service
 metadata:
@@ -43,8 +51,12 @@ metadata:
   namespace: banking-app
 spec:
   type: ClusterIP
+  # this selector is separate from the deployment's one above, but points at the exact same
+  # label, this is what tells the service which pods to actually send traffic to
   selector:
     app: auth-service
+  # port is what other things inside the cluster connect to, targetPort is the actual port
+  # the container is listening on, they happen to match here but do not have to
   ports:
     - port: 8080
       targetPort: 8080

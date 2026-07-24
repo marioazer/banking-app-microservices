@@ -20,6 +20,7 @@ spec:
           ports:
             - containerPort: 8080
           # pulls in the shared config values plus the db username and password from the secret
+          # envFrom loads every key from these as env vars, saves listing each one by hand under env
           envFrom:
             - configMapRef:
                 name: banking-global-config
@@ -28,6 +29,7 @@ spec:
 ---
 # internal only service, clusterip since nothing outside the cluster talks to this directly,
 # all external traffic comes in through the ingress instead
+# clusterip is actually the default service type, only picked it explicitly here for clarity
 apiVersion: v1
 kind: Service
 metadata:

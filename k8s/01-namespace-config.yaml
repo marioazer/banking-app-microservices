@@ -1,6 +1,9 @@
 # this is the first file where I will code the namespace config
+# still pretty new to kubernetes, so leaving myself extra notes across these manifests as I learn
 
 # the application namespace
+# learned a namespace is basically a folder for everything else, keeps this project's objects
+# separated from anything else that might be running in the same cluster
 
 apiVersion: v1
 kind: Namespace
@@ -10,6 +13,8 @@ metadata:
     name: banking-app
 
 # this will be the global configmap the shared ennvironment variables
+# a --- on its own line is how one yaml file holds multiple separate k8s objects, kubectl
+# applies each document between the dashes as its own thing
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -18,6 +23,8 @@ metadata:
   namespace: banking-app
 
 # non secret values every service needs, the actual db credentials live in the secret instead
+# configmap vs secret was confusing at first, functionally theyre pulled in the same way, the
+# real difference is just that secret values get base64 encoded and are meant for sensitive stuff
 data:
   SPRING_PROFILES_ACTIVE: "prod"
   DB_NAME: "banking"

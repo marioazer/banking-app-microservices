@@ -33,6 +33,8 @@ spec:
               value: "kafka.banking-app.svc.cluster.local:9092"
 ---
 # still exposing a clusterip even though there is no real api, spring boot needs a port for actuator/health checks
+# took a bit to realize a service does not require the pod to have a public facing api,
+# it just needs something listening on the target port, health checks count just fine
 apiVersion: v1
 kind: Service
 metadata:

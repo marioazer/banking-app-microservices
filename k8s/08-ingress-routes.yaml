@@ -1,8 +1,13 @@
+# still new to ingress specifically, this is the one object that actually routes outside
+# traffic to the right internal service based on the url path, everything else in k8s/ so
+# far has just been clusterip services that only talk to each other inside the cluster
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: banking-ingress
   namespace: banking-app
+  # this annotation is what tells the cluster which ingress controller should actually
+  # handle these rules, has to match whatever controller is installed, nginx here
   annotations:
     kubernetes.io/ingress.class: "nginx"
 
@@ -10,6 +15,8 @@ spec:
   rules:
     - http:
         paths:
+          # pathType prefix means /api/v1/auth also matches things like /api/v1/auth/login,
+          # not just an exact match on the literal path string
           # 1. Auth traffic (login/2FA/refresh/logout - see AuthController)
           - path: /api/v1/auth
             pathType: Prefix

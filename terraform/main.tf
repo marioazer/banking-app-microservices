@@ -1,8 +1,12 @@
 # the actual code for the terraform main file
-# code for terraform/main.tf 
+# code for terraform/main.tf
+
+# still learning terraform, so notes below are partly me working out how each block actually behaves
 
 # this is the vpc network module, using the official terraform-aws-modules vpc module instead
 # of hand rolling every subnet and route table myself
+# module vs resource was confusing at first, a module is really just someone else's reusable
+# bundle of resources, source points at where to pull it from and version pins which release
 
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
@@ -13,6 +17,8 @@ module "vpc" {
   cidr = "10.0.0.0/16"
 
   # spreading across two azs for basic availability, not going wider than that for this project
+  # the ${var.aws_region}a syntax is string interpolation, just stitching the region variable
+  # together with a literal "a" or "b" to get a real availability zone name like us-east-1a
   azs = ["${var.aws_region}a", "${var.aws_region}b"]
 
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
@@ -39,10 +45,14 @@ module "vpc" {
 }
 
 # db security group, this is the firewall rule layer that decides who can even reach the database
+# this is a plain resource block instead of a module, so its a single aws object, not a bundle
+# of many, the two part name below is <resource type> then <the local name I chose for it>
 resource "aws_security_group" "rds_sg" {
   name        = "banking-rds-sg"
   description = "Allow inbound traffic from EKS worker nodes to PostgreSQL RDS"
 
+  # module.vpc.vpc_id is how one resource reaches into another module's output, terraform
+  # figures out the vpc has to get created before this security group can reference it
   vpc_id = module.vpc.vpc_id
 
   # only the eks worker node security group can reach postgres, nothing else in or outside the vpc
@@ -71,13 +81,15 @@ resource "aws_db_instance" "banking_db" {
   identifier = "banking-postgres-db"
 
   # starts small with room to autoscale storage up to 40gb as data grows, instead of over provisioning up front
-  allocated_storage      = 10
-  max_allocated_storage  = 40
-  engine                 = "postgres"
-  engine_version         = "15.4"
-  instance_class         = "db.t3.micro"
-  db_name                = "banking"
-  username               = "dbadmin"
+  allocated_storage     = 10
+  max_allocated_storage = 40
+  engine                = "postgres"
+  engine_version        = "15.4"
+  instance_class        = "db.t3.micro"
+  db_name               = "banking"
+  username              = "dbadmin"
+  # var.db_password pulls from the sensitive variable defined in variables.tf, never a literal
+  # string here, this way the real password only ever lives in terraform.tfvars, not in this file
   password               = var.db_password
   db_subnet_group_name   = module.vpc.database_subnet_group_name
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
@@ -89,6 +101,7 @@ resource "aws_db_instance" "banking_db" {
 }
 
 # aws eks kubernetes cluster module, this is what all six services actually run on top of
+# another registry module rather than a bare resource, same source/version pattern as the vpc one above
 module "eks" {
   source = "terraform-aws-modules/eks/aws"
 

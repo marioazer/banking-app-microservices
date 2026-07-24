@@ -7,6 +7,8 @@ metadata:
   namespace: banking-app
 spec:
   replicas: 2
+  # matchLabels has to line up with the labels set on the pod template below, this is the
+  # link kubernetes actually uses to know which running pods this deployment is responsible for
   selector:
     matchLabels:
       app: transaction-service
