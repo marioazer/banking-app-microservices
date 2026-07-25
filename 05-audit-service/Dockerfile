@@ -1,5 +1,3 @@
-# last of the six services, and still learning docker, so notes here for myself as I go too
-
 # multi stage build, same pattern used across every service in this project, the build stage
 # below compiles the jar but never ships, the runtime stage further down is the real image
 # Build stage

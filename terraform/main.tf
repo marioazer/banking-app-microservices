@@ -1,8 +1,6 @@
 # the actual code for the terraform main file
 # code for terraform/main.tf
 
-# still learning terraform, so notes below are partly me working out how each block actually behaves
-
 # this is the vpc network module, using the official terraform-aws-modules vpc module instead
 # of hand rolling every subnet and route table myself
 # module vs resource was confusing at first, a module is really just someone else's reusable

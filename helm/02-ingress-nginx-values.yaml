@@ -1,5 +1,3 @@
-# still new to helm, notes below are mostly me working out what each override actually controls
-
 # values for the ingress-nginx chart, this is what actually terminates traffic coming into the cluster
 # same idea as the kafka values file, this only overrides specific keys, the chart itself already
 # has sane defaults for everything I am not touching here

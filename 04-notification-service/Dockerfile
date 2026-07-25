@@ -1,5 +1,3 @@
-# still fairly new to docker, leaving myself notes here as I actually understand each line
-
 # multi stage build, same shape as the rest of the services in this project, the build stage
 # below never ships on its own, only the runtime stage further down becomes the real image
 # Build stage

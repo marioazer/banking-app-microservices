@@ -3,8 +3,8 @@
 # the actual code
 # terraform/variables.tf
 
-# still learning terraform, variables here are basically input parameters for the whole config,
-# referenced elsewhere as var.whatever_the_name_is, main.tf and provider.tf both do that a lot
+# variables here are basically input parameters for the whole config, referenced elsewhere
+# as var.whatever_the_name_is, main.tf and provider.tf both do that a lot
 
 variable "aws_region" {
   description = "AWS region for all infrastructure resources"

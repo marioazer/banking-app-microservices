@@ -1,5 +1,3 @@
-# still learning docker so leaving myself extra notes here while it all sinks in
-
 # this is a multi stage build, two from lines instead of one, first stage just builds the jar
 # and never actually ships, only the second stage below becomes the real image
 # Build stage

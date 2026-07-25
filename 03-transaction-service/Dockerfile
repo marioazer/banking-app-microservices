@@ -1,5 +1,3 @@
-# learning docker while building this, so a few extra notes here explaining the why not just the what
-
 # this is a multi stage build, first from block builds the jar, second one further down is
 # the actual image that ships, this is the service moving real money so keeping the runtime
 # surface small feels especially worth understanding properly, not just copy pasting

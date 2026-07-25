@@ -1,6 +1,6 @@
-# still new to ingress specifically, this is the one object that actually routes outside
-# traffic to the right internal service based on the url path, everything else in k8s/ so
-# far has just been clusterip services that only talk to each other inside the cluster
+# this is the one object that actually routes outside traffic to the right internal service
+# based on the url path, everything else in k8s/ so far has just been clusterip services
+# that only talk to each other inside the cluster
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

@@ -1,5 +1,3 @@
-# still learning helm, so keeping notes here as I figure out what each override actually does
-
 # kafka broker configuration, used with the bitnami/kafka chart
 # learned this file does not stand on its own, its just an overrides file, helm takes the chart's
 # own default values.yaml and layers whatever I put in here right on top of it

@@ -1,7 +1,7 @@
 # these are the values terraform prints after apply, mostly so I don't have to go dig them up in the
 # aws console every time, and deploy-to-eks.yml relies on the cluster name to run update-kubeconfig
-# still learning terraform, but the pattern clicked fast, output just exposes a value that already
-# exists somewhere in the resources/modules above, it does not create anything new on its own
+# output just exposes a value that already exists somewhere in the resources/modules above,
+# it does not create anything new on its own
 
 output "vpc_id" {
   description = "The ID of the provisioned AWS VPC"

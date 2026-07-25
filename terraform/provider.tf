@@ -1,8 +1,8 @@
 # the actual code for terraform provider
 # terraform/provider.tf
 
-# still getting comfortable with terraform, this file is where it declares which providers (plugins
-# that actually know how to talk to aws, kubernetes, etc) it needs and pins their versions
+# this file is where terraform declares which providers (plugins that actually know how to
+# talk to aws, kubernetes, etc) it needs and pins their versions
 terraform {
   required_version = ">= 1.5.0"
 

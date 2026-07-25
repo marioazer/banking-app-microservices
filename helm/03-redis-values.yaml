@@ -1,5 +1,3 @@
-# still learning helm, this is the smallest of the three values files so a decent one to start with
-
 # redis cache for notification-service (@Cacheable / @EnableCaching in ProfileServiceClient.java)
 # install with a release named "redis" so the service DNS name is redis-master,
 # matching REDIS_HOST in k8s/07-notification-service.yaml

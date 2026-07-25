@@ -1,5 +1,3 @@
-# still picking up docker as I build this, so extra notes for myself sprinkled through this file
-
 # two from statements means this is a multi stage build, the first stage below is just for
 # compiling, it never gets shipped, only the second from further down becomes the real image
 # Build stage

@@ -1,5 +1,4 @@
 # this is the first file where I will code the namespace config
-# still pretty new to kubernetes, so leaving myself extra notes across these manifests as I learn
 
 # the application namespace
 # learned a namespace is basically a folder for everything else, keeps this project's objects

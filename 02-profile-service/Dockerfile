@@ -1,5 +1,3 @@
-# learning docker as I go, so this file has a few more notes than a normal dockerfile would
-
 # multi stage build, the build stage below compiles everything but never ships, only the
 # runtime stage further down actually becomes the image that gets pushed and deployed
 # Build stage
