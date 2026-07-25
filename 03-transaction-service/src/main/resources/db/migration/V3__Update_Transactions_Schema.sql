@@ -20,4 +20,6 @@ ADD COLUMN status transaction_status_enum NOT NULL DEFAULT 'COMPLETED';
 
 -- 3. (Optional but recommended) Add an index to query pending transactions quickly
 -- Fraud systems will frequently query the database looking for PENDING_APPROVAL rows.
+-- learned this where clause makes it a partial index, only rows matching pending_approval
+-- actually get indexed, way smaller and faster than indexing the status column for every row
 CREATE INDEX idx_transactions_status ON transactions (status) WHERE status = 'PENDING_APPROVAL';

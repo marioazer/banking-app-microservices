@@ -30,6 +30,9 @@ public class TransferService {
      * Executes an internal transfer between two accounts owned by the same user.
      * Guaranteed atomic execution via @Transactional.
      */
+    // @RequiresKyc is a custom annotation, not a built in spring one, KycEnforcementAspect
+    // intercepts any call to a method carrying this and blocks it before the body even starts
+    // if the caller's kyc status is not approved, learned this is aop, aspect oriented programming
     @Transactional
     @RequiresKyc
     public TransferResponseDto executeTransfer(Long userId, Long fromAccountId, Long toAccountId, BigDecimal amount) {
@@ -57,6 +60,8 @@ public class TransferService {
         return new TransferResponseDto(transactionId, "COMPLETED");
     }
 
+    // tiny private record just to return two values from one method without building a whole
+    // separate public class for something only this one method internally needs
     private record AccountPair(AccountEntity fromAccount, AccountEntity toAccount) {}
 
     private AccountPair lockAndValidateAccounts(Long userId, Long fromAccountId, Long toAccountId) {
@@ -90,6 +95,9 @@ public class TransferService {
 
     private void publishTransferEvent(Long userId, Long fromAccountId, Long toAccountId, BigDecimal amount, UUID transactionId) {
         // A @TransactionalEventListener will catch this and send it to Kafka strictly AFTER the commit[cite: 1]
+        // learned applicationeventpublisher.publishevent is spring's own in process event bus,
+        // completely separate from kafka, this just hands the event off inside the jvm, some other
+        // listener method elsewhere is the one that actually forwards it out to kafka afterward
         FundsTransferredEvent event = new FundsTransferredEvent(userId, fromAccountId, toAccountId, amount, transactionId);
         eventPublisher.publishEvent(event);
     }

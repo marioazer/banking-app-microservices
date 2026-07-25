@@ -17,6 +17,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+// extending onceperrequestfilter guarantees this filter's logic runs exactly once per request even
+// if the servlet container forwards or includes the request internally more than once
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -32,6 +34,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.blacklistedTokenRepository = blacklistedTokenRepository;
     }
 
+    // doFilterInternal is the one method onceperrequestfilter actually requires me to implement,
+    // it runs for literally every incoming request so has to be careful not to slow things down
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -108,6 +112,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
         if (jwtService.isTokenValid(jwt, userDetails)) {
+            // second constructor argument is normally the password, null here since the jwt
+            // itself already proved identity, there is nothing left to check credentials against
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,

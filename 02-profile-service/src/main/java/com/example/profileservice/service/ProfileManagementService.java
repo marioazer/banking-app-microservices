@@ -37,6 +37,8 @@ public class ProfileManagementService {
     // FR4.1 & 4.2: User Profile Updates
     // ==========================================
     
+    // @Transactional here matters more than it looks, if publishing to kafka down in step 4
+    // ever threw, the db save from step 3 would get rolled back too since both are in one transaction
     @Transactional
     public void updateContactInfo(Long userId, UpdateContactInfoRequestDto dto) {
         UserProfile user = userProfileRepository.findById(userId)
@@ -133,6 +135,9 @@ public class ProfileManagementService {
     // =========================================================================================
     // DTO Records for Kafka Events (Typically placed in a shared library, defined here for clarity)
     // =========================================================================================
+    // records are a newer java feature, this one line auto generates the constructor, getters,
+    // equals, hashcode and toString, a lot shorter than writing all of that out by hand like the
+    // model classes in the auth service do
     public record ProfileUpdatedEvent(Long userId, LocalDateTime timestamp, String eventType, Map<String, Object> changes) {}
     public record KycStatusUpdatedEvent(Long userId, KycStatus oldStatus, KycStatus newStatus, LocalDateTime timestamp) {}
 }

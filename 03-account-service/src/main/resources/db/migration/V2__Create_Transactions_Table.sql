@@ -32,6 +32,8 @@ CREATE TABLE transactions (
 -- 3. Performance Indexes (The Core of FR6.1)
 -- ===========================================================================
 -- Fulfills FR6.1 AC2: Composite B-Tree index for instant pagination.
--- The "DESC" keyword physically pre-sorts the index entries so the newest 
+-- The "DESC" keyword physically pre-sorts the index entries so the newest
 -- transactions are always at the top of the B-Tree for a given account.
+-- learned a composite index like this one only actually helps when queries filter/sort by
+-- account_id first then created_at, an index on just created_at alone would not help this query
 CREATE INDEX idx_transactions_account_created ON transactions (account_id, created_at DESC);

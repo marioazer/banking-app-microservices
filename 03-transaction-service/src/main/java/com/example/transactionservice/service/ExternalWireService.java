@@ -27,6 +27,9 @@ public class ExternalWireService {
     private final IbanSwiftValidator validator;
     private final KafkaTemplate<String, LargeTransferRequestedEvent> kafkaTemplate;
 
+    // bigdecimal even for a constant threshold, comparing it later with compareTo instead of ==
+    // or .equals(), learned bigdecimal.equals cares about scale too so 5000.00 vs 5000.0 would
+    // not be equal even though they represent the same value, compareTo avoids that trap
     private static final BigDecimal FRAUD_THRESHOLD = new BigDecimal("5000.00");
     private static final String FRAUD_TOPIC = "large-transfers-review";
 
@@ -93,6 +96,8 @@ public class ExternalWireService {
         return fromAccount;
     }
 
+    // compareTo returning greater than zero means amount is strictly bigger than the threshold,
+    // so exactly 5000.00 itself does not trigger review, only amounts that go over it
     private TransactionStatus determineTransactionStatus(BigDecimal amount) {
         if (amount.compareTo(FRAUD_THRESHOLD) > 0) {
             return TransactionStatus.PENDING_APPROVAL; // Requires manual or automated review[cite: 2]

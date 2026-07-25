@@ -12,6 +12,9 @@ import jakarta.persistence.Table;
  * Deliberately minimal: only the fields transaction-service actually needs to lock,
  * verify ownership of, and debit/credit during a transfer.
  */
+// learned two completely separate services can each define their own @entity class pointed at
+// the exact same physical table, as long as both agree on the columns they actually touch,
+// this is a shared database pattern, not something jpa or hibernate is aware of on its own
 @Entity
 @Table(name = "accounts")
 public class AccountEntity {

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 
 import com.example.authservice.model.BlacklistedToken;
 
+// the <BlacklistedToken, String> generic here is <entity type, primary key type>, string
+// because the jti primary key on this entity is a string, not the usual auto generated long
 @Repository
 public interface BlacklistedTokenRepository extends JpaRepository<BlacklistedToken, String> {
 

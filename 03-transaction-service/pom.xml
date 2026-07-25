@@ -47,10 +47,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- this is what makes @Aspect and @Before in KycEnforcementAspect actually work, without
+             this starter those annotations would just be inert, nothing would intercept the calls -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
+        <!-- brings in feign so ProfileServiceClient can be a plain interface instead of hand
+             written resttemplate/httpclient calls -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
@@ -94,6 +98,8 @@
         </dependency>
     </dependencies>
 
+    <!-- spring cloud has its own separate release train and version number from spring boot
+         itself, this bom import is what keeps openfeign's version compatible with everything else -->
     <dependencyManagement>
         <dependencies>
             <dependency>

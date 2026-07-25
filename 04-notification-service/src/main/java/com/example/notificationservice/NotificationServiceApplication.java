@@ -9,6 +9,9 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Bean;
 import org.springframework.retry.annotation.EnableRetry;
 
+// three separate enable annotations stacked here, learned each one turns on a different piece
+// of spring's opt in behavior, feign clients, the @cacheable annotations on ProfileServiceClient,
+// and the @retryable/@recover pair in NotificationProviderService, none of them work without these
 @SpringBootApplication
 @EnableFeignClients
 @EnableCaching

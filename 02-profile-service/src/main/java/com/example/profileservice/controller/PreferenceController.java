@@ -10,6 +10,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+// putting @PreAuthorize at the class level instead of on each method applies it to every single
+// endpoint in this controller at once, learned this saves repeating the same check three times
 @RestController
 @RequestMapping("/api/v1/profile/alerts")
 @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')")
@@ -28,6 +30,8 @@ public class PreferenceController {
      * Only the alert threshold is affected - any existing daily-summary opt-in/timezone
      * preference for this user is left exactly as it was.
      */
+    // @Valid tells spring to run bean validation on the incoming dto before this method body
+    // even runs, if any @notnull/@min/etc constraint on the dto fails this returns a 400 automatically
     @PutMapping("/threshold")
     public ResponseEntity<String> updateAlertThreshold(
             @RequestBody @Valid UpdateAlertThresholdRequestDto request) {

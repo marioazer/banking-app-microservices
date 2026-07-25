@@ -17,6 +17,8 @@ public record ExternalWireRequestDto(
 
         @NotBlank(message = "IBAN is mandatory")
         // Basic structural regex for IBAN: 2 letters, 2 digits, followed by 11 to 30 alphanumeric characters
+        // learned this regex only checks the shape, not whether the iban is a real valid one,
+        // the actual mod 97 checksum math lives separately in IbanSwiftValidator
         @Pattern(regexp = "^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$", message = "Invalid IBAN structure provided")
         String iban,
 

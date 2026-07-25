@@ -29,6 +29,9 @@ public class ProfileAuditListener {
      * Consumes messages from the profile-events topic.
      * Uses a specific groupId to ensure it gets a copy of the message independently of other services.
      */
+    // this is the exact same topic notification-service's ProfileNotificationListener also
+    // consumes, just with a different groupId, confirms two totally different services can
+    // each get their own full copy of every message on the same kafka topic
     @KafkaListener(topics = "profile-events", groupId = "audit-service-group")
     public void consumeProfileUpdate(Map<String, Object> eventPayload) {
         try {
@@ -56,6 +59,9 @@ public class ProfileAuditListener {
         // or parse it directly from the event.
 
         // 2. Extract the changes map and serialize it back to a JSON string for DB storage
+        // learned this is a round trip, kafka delivers json, jackson deserializes it into a
+        // generic map first, then this line turns that same map right back into a json string
+        // just so it can be stored as one flat text column instead of a real structured object
         Object changesObj = eventPayload.get("changes");
         String changesJson = objectMapper.writeValueAsString(changesObj);
 

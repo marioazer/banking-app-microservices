@@ -12,6 +12,8 @@ import com.example.accountservice.model.TransactionType;
 public interface TransactionRepository extends JpaRepository<TransactionEntity, Long> {
 
     // Fulfills FR6.2 & FR6.4: Database-level pagination for transactions[cite: 4]
+    // learned passing a pageable straight into a derived query method is enough for spring data
+    // to add the limit/offset and sorting itself, no manual sql pagination math required
     Page<TransactionEntity> findByAccountId(Long accountId, Pageable pageable);
 
     // Fulfills FR6.3: Dynamic filtering by transaction type alongside pagination[cite: 4]

@@ -11,8 +11,10 @@ import jakarta.persistence.Table;
 @Table(name = "revoked_jwt_blacklist")
 public class BlacklistedToken {
 
-    // Notice we do NOT use @GeneratedValue here. 
+    // Notice we do NOT use @GeneratedValue here.
     // The JWT 'jti' claim is already a globally unique UUID.
+    // learned @id does not have to be a number, jpa is fine using a string as the primary key
+    // as long as whatever assigns it (this jti string) is guaranteed unique on its own
     @Id
     @Column(name = "jti", length = 36, nullable = false)
     private String jti;

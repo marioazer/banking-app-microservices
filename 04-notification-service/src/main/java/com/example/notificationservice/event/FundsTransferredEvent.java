@@ -12,6 +12,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * The Tolerant Reader pattern (@JsonIgnoreProperties) prevents deserialization
  * exceptions if the Transaction Service adds new fields in the future.
  */
+// learned this is its own separate record from transaction-service's FundsTransferredEvent,
+// two different classes in two different services that both just happen to deserialize the
+// exact same kafka json payload, @JsonIgnoreProperties is what keeps that loosely coupled
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FundsTransferredEvent(
 

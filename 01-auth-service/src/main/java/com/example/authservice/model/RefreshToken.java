@@ -9,6 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+// no lombok here, this class writes its own getters/setters by hand further down, learned both
+// approaches exist side by side in this codebase depending on which model file you look at
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshToken {

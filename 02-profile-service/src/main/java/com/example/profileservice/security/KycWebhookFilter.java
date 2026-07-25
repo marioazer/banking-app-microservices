@@ -25,6 +25,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
+// same onceperrequestfilter base class as the jwt filter in auth-service, but this one only
+// cares about a single specific endpoint instead of gatekeeping the whole api
 @Component
 public class KycWebhookFilter extends OncePerRequestFilter {
 
@@ -50,6 +52,9 @@ public class KycWebhookFilter extends OncePerRequestFilter {
         }
 
         // 2. Wrap the request to cache the input stream
+        // learned a servlet request body can normally only be read once, since verifying the
+        // signature here has to read the raw body, but the controller needs to read the same
+        // body again later to parse the json, this wrapper caches it so both reads work
         CachedBodyHttpServletRequest wrappedRequest = new CachedBodyHttpServletRequest(request);
 
         // 3-5. Extract the vendor's signature, compute our own, and compare them
@@ -102,6 +107,9 @@ public class KycWebhookFilter extends OncePerRequestFilter {
     /**
      * Prevents Timing Attacks by checking every single byte, even if a mismatch is found early.
      */
+    // learned a normal string.equals() bails out on the very first mismatched character, which
+    // means the response time subtly leaks how many characters matched, messagedigest.isequal
+    // always compares every byte no matter what so an attacker cannot time their way to the secret
     private boolean isSignatureValid(String expected, String actual) {
         if (expected == null) return false;
         if (actual == null) return false;

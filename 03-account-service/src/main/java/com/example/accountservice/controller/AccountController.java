@@ -46,6 +46,8 @@ public class AccountController {
      * Exposes a protected endpoint to fetch paginated transaction data[cite: 4].
      * Accepts optional query parameters: ?page=0&size=50&type=DEBIT[cite: 4].
      */
+    // learned pageable is a spring data type the framework builds automatically straight from
+    // query params like ?page=0&size=50&sort=createdAt,desc, do not have to parse any of that myself
     @GetMapping("/{accountId}/transactions")
     public ResponseEntity<Page<TransactionEntity>> getTransactionHistory(
             @PathVariable Long accountId,
@@ -58,6 +60,8 @@ public class AccountController {
         Page<TransactionEntity> transactions = accountService.getAccountTransactions(userId, accountId, type, pageable);
         
         // Returns the standard Spring Page JSON containing content and metadata (totalPages, totalElements)[cite: 4]
+        // learned page<t> serializes to json with a content array plus all that pagination
+        // metadata bundled in automatically, did not have to build a custom response wrapper for it
         return ResponseEntity.ok(transactions);
     }
 

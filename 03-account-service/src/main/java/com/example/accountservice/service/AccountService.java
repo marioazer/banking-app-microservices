@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// @Transactional(readOnly = true) at the class level applies to every method here by default,
+// learned this lets hibernate skip some dirty checking work since it knows nothing gets written
 @Service
 @Transactional(readOnly = true)
 public class AccountService {
@@ -74,6 +76,9 @@ public class AccountService {
 
         if (!account.getUserId().equals(userId)) {
             // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden[cite: 4]
+            // learned this specific exception type matters, spring security has an exception handler
+            // already registered for accessdeniedexception, a plain runtimeexception would have
+            // just bubbled up as an unhandled 500 instead of a proper 403
             throw new AccessDeniedException("Action forbidden: You do not have permission to view this account's history.");
         }
     }

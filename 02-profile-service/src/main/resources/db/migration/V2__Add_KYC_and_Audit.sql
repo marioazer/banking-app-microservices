@@ -2,6 +2,8 @@
 -- 1. Create the KYC Status ENUM Type
 -- ===========================================================================
 -- Enforces strict data integrity at the database level.
+-- learned postgres enums are stricter than just a varchar with a check constraint, an insert
+-- with a typo'd status value gets rejected outright instead of silently making it into the table
 CREATE TYPE kyc_status_enum AS ENUM (
     'PENDING_VERIFICATION', 
     'APPROVED', 

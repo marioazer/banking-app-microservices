@@ -32,6 +32,8 @@ public interface ProfileServiceClient {
      * @Cacheable intercepts the call. If the data is in Redis, the HTTP call is SKIPPED,
      * ensuring sub-millisecond lookups to meet the 5-second dispatch SLA[cite: 4].
      */
+    // learned @cacheable can go directly on a feign client method, not just on a normal service
+    // method, spring wraps the whole call including the actual http request in a cache check first
     @GetMapping("/api/v1/profile/alerts/{userId}")
     @Cacheable(value = "user-preferences", key = "#userId", unless = "#result == null")
     UserPreferenceResponse getUserPreferences(@PathVariable("userId") Long userId);

@@ -23,6 +23,9 @@ import io.jsonwebtoken.security.Keys;
 public class JwtService {
 
     // In a real app, this is injected via application.yml and stored in a secure vault
+    // @Value pulls this from application properties by key, the string after the colon inside
+    // ${} is the fallback default used only if that property is not set anywhere, learned this
+    // syntax the hard way after wondering why local dev still worked with no config for it
     @Value("${application.security.jwt.secret-key:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
     private String secretKey;
 
@@ -79,6 +82,9 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
+    // function<claims, t> lets one method work for pulling out any claim, whichever getter i
+    // pass in as claimsResolver decides what actually comes back, instead of writing a near
+    // identical method for every single claim type i want to read off the token
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
@@ -93,6 +99,8 @@ public class JwtService {
                 .getBody();
     }
 
+    // the secret key is stored as base64 text so it can safely live in a yaml/env var as a plain
+    // string, this decodes it back into raw bytes before turning it into an actual signing key
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);

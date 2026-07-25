@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+// @Aspect plus @Component is what turns this class into actual aop advice instead of just a
+// plain bean, spring wraps any method carrying @RequiresKyc in a proxy that calls this class first
 @Aspect
 @Component
 public class KycEnforcementAspect {
@@ -23,6 +25,9 @@ public class KycEnforcementAspect {
      * This advice runs before any method annotated with @RequiresKyc.
      * It completely halts execution if the compliance check fails.
      */
+    // @Before with this pointcut expression means run before any method anywhere in the app
+    // carrying @RequiresKyc, learned this is why executeTransfer and initiateWire both got this
+    // check for free just by adding the annotation, no code duplicated between the two services
     @Before("@annotation(com.example.transactionservice.annotation.RequiresKyc)")
     public void enforceKycStatus() {
         // 1. Securely extract the user ID from the active JWT session

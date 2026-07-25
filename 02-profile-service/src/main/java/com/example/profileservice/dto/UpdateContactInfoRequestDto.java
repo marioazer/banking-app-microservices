@@ -10,6 +10,8 @@ import jakarta.validation.constraints.Size;
 public class UpdateContactInfoRequestDto {
 
     // Regex strictly validates E.164 international phone number format (e.g., +14155552671)
+    // learned all these jakarta validation annotations only actually run when the controller
+    // method parameter is also marked @Valid, the annotation alone on the dto does nothing by itself
     @NotBlank(message = "Phone number is required")
     @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Phone number must be a valid international format")
     private String phoneNumber;

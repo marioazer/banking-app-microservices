@@ -28,6 +28,9 @@ import com.example.authservice.service.JwtService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+// @RestController is @Controller + @ResponseBody combined, means every method here returns
+// its value straight as the http response body (usually as json) instead of a view name
+// @RequestMapping on the class sets a shared prefix, so every endpoint below builds on /api/v1/auth
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -37,6 +40,8 @@ public class AuthController {
     private final AuthSecurityService authSecurityService;
     private final RefreshTokenRepository refreshTokenRepository;
 
+    // learned spring does not need an @Autowired annotation here since there is only one
+    // constructor, it just automatically injects all four dependencies through this one
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           AuthSecurityService authSecurityService,
@@ -79,6 +84,8 @@ public class AuthController {
         String fullJwt = jwtService.generateToken(user, TokenType.FULL_AUTH);
         ResponseCookie refreshCookie = createRefreshTokenCookie(user.getId());
 
+        // learned you can call .header() more than once on a responseentity builder to stack
+        // multiple response headers before finally calling .body() to close it out
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(Map.of("status", "SUCCESS", "access_token", fullJwt));
@@ -99,8 +106,10 @@ public class AuthController {
 
     @PostMapping("/verify-2fa/sms")
     public ResponseEntity<?> verifySms(@RequestBody Map<String, String> request) {
-        
+
         // Thanks to our JwtAuthenticationFilter, we ALREADY know who this user is securely!
+        // learned securitycontextholder is thread local storage spring security fills in per request,
+        // the filter runs earlier in the chain and sets this authentication before this method ever runs
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = (User) auth.getPrincipal();
         String code = request.get("code");
@@ -120,6 +129,8 @@ public class AuthController {
         String fullJwt = jwtService.generateToken(user, TokenType.FULL_AUTH);
         String rawDeviceId = authSecurityService.registerNewDevice(user.getId());
 
+        // httpOnly means javascript in the browser cannot read this cookie at all, blocks a whole
+        // class of xss attacks, secure means it only ever gets sent over an actual https connection
         ResponseCookie deviceCookie = ResponseCookie.from("Device-ID", rawDeviceId)
                 .httpOnly(true).secure(true).path("/").maxAge(31536000) // 1 Year
                 .build();
@@ -136,6 +147,8 @@ public class AuthController {
     // 3. Sliding Session Refresh Phase
     // ==========================================
 
+    // required = false on @CookieValue means this stays null instead of spring throwing a
+    // 400 automatically when the cookie is missing, lets me handle the missing case myself below
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshSession(@CookieValue(name = "Refresh-Token", required = false) String refreshToken) {
         if (refreshToken == null) {
@@ -205,6 +218,9 @@ public class AuthController {
                 .build();
     }
 
+    // messagedigest.getinstance can throw a checked exception if the algorithm name is unknown
+    // to the jvm, sha-256 always exists so wrapping it in a runtimeexception here just avoids
+    // forcing every caller to declare a throws clause for something that in practice never happens
     private String hashString(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

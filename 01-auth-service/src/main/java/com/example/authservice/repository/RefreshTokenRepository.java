@@ -10,15 +10,21 @@ import org.springframework.stereotype.Repository;
 
 import com.example.authservice.model.RefreshToken;
 
+// this is an interface with no actual implementation body, spring data jpa generates the real
+// class behind the scenes at startup just from the method signatures and naming conventions here
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
+    // named exactly findByTokenHash so spring data can auto derive the sql from the method name
+    // alone, no @Query needed for this one since it is a simple single field lookup
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
     /**
      * A powerful custom JPQL query to instantly revoke all active tokens for a given user.
      * Useful for password resets or "Sign out of all other sessions" functionality.
      */
+    // jpql looks like sql but it references the java entity and field names (RefreshToken,
+    // r.userId) instead of the actual table/column names, hibernate translates it underneath
     @Modifying
     @Query("UPDATE RefreshToken r SET r.revoked = true WHERE r.userId = :userId AND r.revoked = false")
     void revokeAllUserTokens(@Param("userId") Long userId);

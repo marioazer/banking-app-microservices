@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+// @Service marks this as a spring managed bean in the business logic layer, functionally almost
+// the same as @Component, just a more specific name so the intent of the class is clear at a glance
 @Service
 public class AuthSecurityService {
 
@@ -61,6 +63,8 @@ public class AuthSecurityService {
         return deviceRepository.findByUserIdAndDeviceHash(userId, hashedCookie).isPresent();
     }
 
+    // @Transactional wraps this whole method in one database transaction, if anything after the
+    // save throws, the save gets rolled back too, so the db never ends up in a half done state
     @Transactional
     public String registerNewDevice(Long userId) {
         String rawDeviceId = UUID.randomUUID().toString();
@@ -156,6 +160,8 @@ public class AuthSecurityService {
      * Cron expression: "0 0 * * * *" means "Run at minute 0 past every hour".
      * Automatically cleans the database of tokens that are already mathematically expired.
      */
+    // learned @Scheduled just needs spring's scheduling support turned on somewhere with
+    // @EnableScheduling, then it runs this method automatically on its own background thread
     @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void purgeExpiredBlacklistTokens() {

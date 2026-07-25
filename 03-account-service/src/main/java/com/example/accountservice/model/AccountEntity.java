@@ -51,6 +51,9 @@ public class AccountEntity {
 
     public AccountEntity() {}
 
+    // learned @prepersist and @preupdate are jpa lifecycle hooks, hibernate calls these
+    // automatically right before insert/update so createdAt and updatedAt never have to be
+    // set manually anywhere else in the codebase, one less thing to forget in a service method
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

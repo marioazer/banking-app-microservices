@@ -34,6 +34,8 @@ public class NotificationProviderService {
      * - Wait 2000ms (1000 * multiplier of 2)
      * - Attempt 3: Fails, delegates to @Recover
      */
+    // learned @retryable needs @enablescheduling's cousin @enableretry turned on somewhere in the
+    // app, otherwise this annotation just sits here doing nothing and a failure throws immediately
     @Retryable(
             retryFor = { RuntimeException.class },
             maxAttempts = 3,
@@ -50,6 +52,9 @@ public class NotificationProviderService {
      * Spring routes the flow here instead of crashing the application.
      * Fulfills FR10.3 Tech Task: Implement error handling when Notification Provider is unavailable[cite: 5].
      */
+    // learned @recover has a strict signature rule, the first parameter has to be the same
+    // exception type @retryable is watching for, and the rest of the parameters have to match
+    // the original method's parameters in order, spring uses that shape to match them up
     @Recover
     public void recoverDispatchFailure(RuntimeException e, String userEmail, String subject, String htmlContent) {
         // In a production system, this would write the failed payload to a Dead Letter Queue (DLQ)

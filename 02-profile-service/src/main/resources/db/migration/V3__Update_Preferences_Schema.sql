@@ -2,6 +2,8 @@
 -- V3__Update_Preferences_Schema.sql
 -- Purpose: Extend user_preferences to support alert thresholds and daily summary scheduling.
 -- ===========================================================================
+-- notice this jumps straight to V3, no V1/V2 for this specific table in this module, learned
+-- flyway does not care about gaps as long as version numbers stay in increasing order overall
 
 -- 1. Add alert threshold with a default value of 100.00 as per FR9 requirement[cite: 6]
 ALTER TABLE user_preferences 

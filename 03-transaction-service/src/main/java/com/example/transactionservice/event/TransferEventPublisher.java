@@ -19,6 +19,9 @@ public class TransferEventPublisher {
      * Intercepts the domain event published by TransferService.
      * Phase.AFTER_COMMIT ensures Kafka only receives this if the database transaction fully succeeds[cite: 1].
      */
+    // learned a plain @EventListener would fire the moment publishEvent() is called, even if the
+    // surrounding transaction later rolled back, @TransactionalEventListener waits and only runs
+    // if that transaction actually commits, exactly what you want before telling kafka money moved
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleFundsTransferredEvent(FundsTransferredEvent event) {
         kafkaTemplate.send(TOPIC, event.transactionId().toString(), event);

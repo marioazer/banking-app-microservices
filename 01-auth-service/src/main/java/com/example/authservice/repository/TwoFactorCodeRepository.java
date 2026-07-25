@@ -18,6 +18,8 @@ public interface TwoFactorCodeRepository extends JpaRepository<TwoFactorCode, Lo
      * The @Modifying annotation is required by Spring Data JPA whenever a query
      * modifies the database (INSERT, UPDATE, DELETE) rather than just reading from it.
      */
+    // this one has no @Query at all, spring data can auto derive a delete just from the method
+    // name deleteByUserId, @Modifying is still required since a delete is not a plain read
     @Modifying
     void deleteByUserId(Long userId);
 }

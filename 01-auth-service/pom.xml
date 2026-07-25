@@ -2,6 +2,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <!-- inheriting from spring boot's own parent pom is what gives every dependency below its
+         version automatically, without this parent I would have to pin a version number on
+         basically every single spring-boot-starter-* dependency by hand -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -85,6 +88,8 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- optional true here means lombok does not get pulled into whatever downstream jar
+             might depend on this module, it is purely a compile time tool for this project itself -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -108,6 +113,9 @@
         
     <build>
         <plugins>
+            <!-- this is the plugin that actually packages the runnable fat jar, excluding lombok
+                 here makes sense since lombok only does its work at compile time generating
+                 getters/setters, the compiled class files never actually need lombok itself at runtime -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -156,6 +164,9 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- surefire is the plugin that actually runs `mvn test`, learned the hard way that
+                 its default file name patterns would have silently run zero of my test suites
+                 since none of them end in plain Test/Tests, they all end in TestSuite -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

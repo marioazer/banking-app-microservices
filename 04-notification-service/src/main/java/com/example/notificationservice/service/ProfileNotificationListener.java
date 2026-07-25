@@ -21,6 +21,10 @@ public class ProfileNotificationListener {
     public ProfileNotificationListener() {
     }
 
+    // learned groupId matters a lot here, every service listening with the same group id shares
+    // the messages between them like a queue, a different group id (like audit-service uses)
+    // gets its own full independent copy of every message instead, that is how both services
+    // can react to the exact same profile-events topic without stepping on each other
     @KafkaListener(topics = "profile-events", groupId = "notification-service-group")
     public void consumeProfileUpdate(Map<String, Object> eventPayload) {
         try {

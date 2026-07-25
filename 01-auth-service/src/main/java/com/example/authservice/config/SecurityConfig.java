@@ -11,6 +11,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.example.authservice.security.JwtAuthenticationFilter;
 
+// @Configuration marks this as a class spring reads at startup to build beans from, @EnableWebSecurity
+// turns on spring security's web support at all, without it none of this filter chain setup would matter
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -23,10 +25,14 @@ public class SecurityConfig {
         this.authenticationProvider = authenticationProvider;
     }
 
+    // @Bean here means spring calls this method once at startup and keeps the returned
+    // securityfilterchain object around as a managed bean, this is what actually wires the rules below
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             // 1. Disable CSRF as we are using a stateless REST API with JWTs
+            // learned csrf protection exists for cookie based browser sessions, a jwt bearer
+            // token api like this one is not vulnerable the same way so it is safe to turn off here
             .csrf(csrf -> csrf.disable())
             
             // 2. Configure endpoint routing rules
@@ -44,6 +50,8 @@ public class SecurityConfig {
             )
             
             // 3. Enforce stateless session management
+            // stateless means spring never creates or reads an httpsession for these requests,
+            // every request has to prove who it is with the jwt on its own, nothing remembered server side
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )

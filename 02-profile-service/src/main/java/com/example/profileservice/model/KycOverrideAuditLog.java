@@ -23,6 +23,8 @@ public class KycOverrideAuditLog {
     private String reason;
     private LocalDateTime timestamp;
 
+    // jpa actually requires this empty no arg constructor to exist, it uses it (plus reflection)
+    // to build the entity before setting the fields from the database row itself
     public KycOverrideAuditLog() {}
 
     public KycOverrideAuditLog(Long userId, Long adminId, KycStatus oldStatus, KycStatus newStatus, String reason) {

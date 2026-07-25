@@ -15,5 +15,7 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
      * Retrieves all accounts for a specific user, excluding those with a specific status.
      * Fulfills FR5.3 AC4: Automatically filter out any accounts where the status is CLOSED.[cite: 3]
      */
+    // "Not" in the method name flips the comparison to not equal, spring data derives the
+    // whole where clause from this name alone, no @Query needed for something this simple
     List<AccountEntity> findByUserIdAndStatusNot(Long userId, AccountStatus status);
 }

@@ -11,6 +11,8 @@ import java.util.List;
  * Declarative REST client for communicating with the Account Service.
  * Fulfills FR10.2 AC2 & AC3: Retrieves current aggregate balances for opted-in users[cite: 5].
  */
+// second feign client in this service, same declarative pattern as ProfileServiceClient below,
+// just pointed at a different downstream service and url property
 @FeignClient(name = "account-service", url = "${account-service.url:http://account-service:8080}")
 public interface AccountServiceClient {
 

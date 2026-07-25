@@ -21,6 +21,8 @@ import java.util.UUID;
  * Internal API Controller for machine-to-machine communication.
  * Fulfills FR8.3: Manual Fraud Review Webhook[cite: 2].
  */
+// no @PreAuthorize on this one unlike the customer facing controllers, learned this is meant
+// to only ever be reachable from inside the cluster network, not directly from an end user
 @RestController
 @RequestMapping("/api/v1/internal/transfers")
 public class InternalFraudController {
@@ -61,6 +63,9 @@ public class InternalFraudController {
 /**
  * Service handling the finalization or atomic reversal of pending wires.
  */
+// learned a top level class does not have to be public, and a file can hold more than one
+// top level class as long as only one of them (the one matching the filename) is public,
+// this service is only ever used by the controller right above it so package private is enough
 @Service
 class FraudResolutionService {
 
@@ -105,6 +110,8 @@ class FraudResolutionService {
         transaction.setStatus(TransactionStatus.REJECTED);
         transaction.setDescription(transaction.getDescription() + " [Fraud Review: REJECTED. Notes: " + reviewerNotes + "]");
 
+        // same pessimistic locking query used during the original transfer, locking the row again
+        // here so a reversal cannot race against some other concurrent operation on this account
         AccountEntity account = accountRepository.findByIdForUpdate(transaction.getAccountId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Source account missing during reversal"));
 

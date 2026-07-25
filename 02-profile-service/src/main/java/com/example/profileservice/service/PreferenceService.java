@@ -34,6 +34,8 @@ public class PreferenceService {
      * @CacheEvict instantly removes the entry associated with this userId from Redis.
      * This guarantees the Notification Service will fetch the updated threshold on its next read[cite: 4].
      */
+    // the #userId inside key = is spring expression language reaching into the method's own
+    // parameter by name, this is how it knows exactly which redis cache entry to evict
     @Transactional
     @CacheEvict(value = "user-preferences", key = "#userId")
     public void updateAlertThreshold(Long userId, BigDecimal alertThresholdAmount) {
@@ -64,6 +66,8 @@ public class PreferenceService {
         preferenceRepository.save(entity);
     }
 
+    // orElseGet takes a supplier instead of a plain value like orElse does, so the new entity
+    // only actually gets constructed when the optional is truly empty, not on every single call
     private UserPreferenceEntity findOrCreateDefault(Long userId) {
         return preferenceRepository.findByUserId(userId)
                 .orElseGet(() -> {

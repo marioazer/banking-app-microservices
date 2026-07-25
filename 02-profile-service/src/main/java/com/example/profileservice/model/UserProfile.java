@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 @Table(name = "user_profiles")
 public class UserProfile {
 
+    // no @GeneratedValue on this @Id, learned this means the id has to be assigned manually
+    // before saving, this entity's id is meant to be the same as the user's id from auth-service
     @Id
     private Long id;
 
@@ -16,6 +18,9 @@ public class UserProfile {
     private String state;
     private String zipCode;
 
+    // @Enumerated(EnumType.STRING) stores the actual word like "PENDING_VERIFICATION" in the
+    // db column instead of a plain number, a little more storage but way easier to read in
+    // the database directly and safer if enum values ever get reordered
     @Enumerated(EnumType.STRING)
     private KycStatus kycStatus = KycStatus.PENDING_VERIFICATION;
 

@@ -38,6 +38,8 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+        <!-- this is the only module with a redis starter, backs the @CacheEvict/@Cacheable
+             annotations PreferenceService and the notification service both rely on -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>

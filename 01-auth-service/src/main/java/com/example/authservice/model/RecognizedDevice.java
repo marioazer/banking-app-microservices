@@ -19,6 +19,8 @@ public class RecognizedDevice {
 
     // We do not map the entire User object here to keep the Auth Service lightweight.
     // We only need the userId to associate the device.
+    // learned this is different from a real @manytoone relationship, storing a plain long
+    // means jpa never tries to join or load a full user entity just to check a device hash
     @Column(name = "user_id", nullable = false)
     private Long userId;
 

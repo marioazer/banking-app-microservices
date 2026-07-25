@@ -79,6 +79,8 @@ public class TransactionAlertListener {
      * Formats a clear message including the transactionId, amount, and date.
      * Fulfills FR9.3 AC1[cite: 4].
      */
+    // learned java text blocks (triple quoted strings) let multi line html sit here without
+    // escaping every single quote or concatenating a bunch of separate strings together
     private String buildHtmlMessage(FundsTransferredEvent event) {
         return """
                <html>

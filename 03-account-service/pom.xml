@@ -46,6 +46,9 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<!-- this module validates jwts as an oauth2 resource server instead of the custom
+		     jwtauthenticationfilter approach auth-service wrote by hand, a good reminder that
+		     spring has a built in way to do the exact same job -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
@@ -89,6 +92,9 @@
 			<artifactId>spring-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- testcontainers spins up a real dockerized postgres just for the test run, learned this
+		     is the only module set up to test against a real database instead of h2 in memory,
+		     though the actual test suite here still just uses h2, this dependency is here unused for now -->
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>junit-jupiter</artifactId>
@@ -106,6 +112,9 @@
 		</dependency>
 	</dependencies>
 
+	<!-- importing a bom (bill of materials) like this is how a whole family of related
+	     dependencies, testcontainers and its postgresql module here, get their versions
+	     locked to compatible releases without pinning each artifact separately -->
 	<dependencyManagement>
 		<dependencies>
 			<dependency>

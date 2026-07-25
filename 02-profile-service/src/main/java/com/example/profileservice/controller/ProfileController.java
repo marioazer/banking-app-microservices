@@ -48,6 +48,8 @@ public class ProfileController {
     // FR3.1: KYC Status Query (Internal Microservice Facing)
     // =========================================================================
     
+    // @PathVariable pulls the {userId} segment straight out of the url and hands it to me
+    // already converted to a long, spring matches it up by parameter name automatically
     @GetMapping("/profiles/{userId}/kyc-status")
     public ResponseEntity<?> getKycStatus(@PathVariable Long userId) {
         UserProfile user = userProfileRepository.findById(userId)
@@ -76,6 +78,9 @@ public class ProfileController {
     // FR3.4: Manual Admin Override (Internal Employee Facing)
     // =========================================================================
     
+    // @PreAuthorize runs before the method body even starts, checking the spring expression
+    // language string against the logged in user's roles, request never even reaches this
+    // code if neither role matches
     @PatchMapping("/admin/profiles/{userId}/kyc")
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPLIANCE_OFFICER')")
     public ResponseEntity<?> adminOverrideKyc(@PathVariable Long userId,
@@ -105,6 +110,8 @@ public class ProfileController {
     
     private Long extractUserIdFromAuth(Authentication authentication) {
         // Assuming the JWT subject holds the User ID as a String
-        return Long.valueOf(authentication.getName()); 
+        // authentication.getName() is spring security's generic way to get whoever is logged in,
+        // here it happens to be the user id since that's what got put in the jwt subject at login
+        return Long.valueOf(authentication.getName());
     }
 }

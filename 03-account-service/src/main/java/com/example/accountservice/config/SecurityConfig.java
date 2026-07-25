@@ -21,6 +21,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // FR5.4 AC1: Account Service requires full authentication for ALL endpoints.
                 // No public/webhook exceptions here, unlike profile-service — this is financial data.
+                // simplest possible rule set here, just one line, since @PreAuthorize on the
+                // controller itself is what actually enforces the full auth scope requirement
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

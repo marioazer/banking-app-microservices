@@ -21,6 +21,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Method-level @PreAuthorize on TransferController enforces SCOPE_FULL_AUTH;
                 // require authentication here so anonymous callers are rejected outright.
+                // notice InternalFraudController has no matching exemption here, meaning it
+                // technically still requires authentication too, just not a specific scope
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

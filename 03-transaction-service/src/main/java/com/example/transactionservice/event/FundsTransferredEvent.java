@@ -11,6 +11,8 @@ import java.util.UUID;
  * check) alongside the account IDs so downstream consumers - like Notification Service's
  * alert-threshold lookup - don't have to mistake an account ID for a user ID.
  */
+// records make sense for events specifically, an event describes something that already happened
+// and should never be mutated after the fact, records being immutable fits that naturally
 public record FundsTransferredEvent(
 
         // The user who owns both accounts and initiated the transfer

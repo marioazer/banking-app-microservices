@@ -21,4 +21,6 @@ CREATE TABLE profile_audit_logs (
 );
 
 -- Fulfills FR4.3 AC1/AC3: audit lookups are always by user, so index on user_id.
+-- learned it is worth indexing for the queries you will actually run, not indexing every
+-- column just because you can, this table has no other lookup pattern besides by user_id
 CREATE INDEX idx_profile_audit_logs_user_id ON profile_audit_logs (user_id);

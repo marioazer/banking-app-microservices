@@ -21,8 +21,10 @@ public class TransactionEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Note: We use a simple Long here rather than @ManyToOne AccountEntity 
+    // Note: We use a simple Long here rather than @ManyToOne AccountEntity
     // to keep the domains decoupled and avoid fetching heavy object graphs unnecessarily.
+    // took a bit to appreciate this, a real @manytoone would make hibernate join or lazy load
+    // the whole account entity just to read a transaction, this way it stays a plain cheap column
     @Column(name = "account_id", nullable = false)
     private Long accountId;
 
@@ -31,6 +33,8 @@ public class TransactionEntity {
     private TransactionType transactionType;
 
     // BigDecimal with precision mapping[cite: 4]
+    // learned money should basically never be a double in java, floating point rounding errors
+    // are unacceptable for real currency math, bigdecimal keeps every cent exact
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 

@@ -11,6 +11,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+// @EnableMethodSecurity is what actually makes @PreAuthorize on the controllers take effect,
+// without it those annotations would just sit there completely ignored
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -26,6 +28,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
+            // webhooks and the kyc-status lookup stay open at the spring security layer since
+            // they are protected by other means instead, the webhook by its own hmac signature
+            // filter below, and kyc-status because it is meant for internal service to service calls
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/webhooks/**").permitAll()
                 .requestMatchers("/api/v1/profiles/*/kyc-status").permitAll()

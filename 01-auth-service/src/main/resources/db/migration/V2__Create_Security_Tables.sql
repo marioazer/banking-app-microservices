@@ -1,3 +1,5 @@
+-- learned flyway reads the V2__ prefix on this filename to know the order to run migrations in,
+-- and only ever runs each one once, tracking what already ran in its own flyway_schema_history table
 -- ===========================================================================
 -- Table 1: Recognized Devices (For bypassing 2FA on trusted hardware)
 -- ===========================================================================
@@ -7,6 +9,8 @@ CREATE TABLE recognized_devices (
     device_hash VARCHAR(255) NOT NULL UNIQUE, -- Store hash, never the raw cookie
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- on delete cascade means if a user row ever gets deleted, all their recognized devices
+    -- get automatically deleted too instead of getting left behind as orphaned rows
     CONSTRAINT fk_recognized_device_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -50,6 +54,8 @@ CREATE TABLE revoked_jwt_blacklist (
 -- ===========================================================================
 -- The blacklist is checked on EVERY request. We index 'jti' (automatically via PRIMARY KEY)
 -- but we also index 'expires_at' so a background cron job can easily delete old rows.
+-- learned an index basically trades disk space and slightly slower writes for much faster
+-- reads on that column, worth it here since expires_at gets scanned by the cleanup job constantly
 CREATE INDEX idx_blacklist_expires_at ON revoked_jwt_blacklist(expires_at);
 
 -- Used to quickly find valid refresh tokens for a user

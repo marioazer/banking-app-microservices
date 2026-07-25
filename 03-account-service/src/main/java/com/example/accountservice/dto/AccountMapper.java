@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import com.example.accountservice.dto.AccountOverviewResponseDto;
 import com.example.accountservice.model.AccountEntity;
 
+// separating this mapping logic into its own @component instead of stuffing it into the service
+// or the entity keeps the entity to db mapping and the entity to api response mapping independent
 @Component
 public class AccountMapper {
 
@@ -36,8 +38,10 @@ public class AccountMapper {
         
         int length = rawAccountNumber.length();
         String lastFourDigits = rawAccountNumber.substring(length - 4);
-        
+
         // Creates a string of dots for the hidden portion
+        // learned string.repeat is a pretty recent java addition, used to have to build this
+        // kind of padding with a loop or stringbuilder before it existed
         String mask = ".".repeat(length - 4);
         
         return mask + lastFourDigits;

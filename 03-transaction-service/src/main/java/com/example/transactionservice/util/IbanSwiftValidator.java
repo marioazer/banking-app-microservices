@@ -52,6 +52,9 @@ public class IbanSwiftValidator {
         }
 
         // Step 3: Perform Modulo 97 check
+        // learned a rearranged iban converts into a number way too big for a normal long,
+        // easily 30+ digits, biginteger is what java uses whenever a number can outgrow every
+        // primitive numeric type
         try {
             BigInteger ibanNumber = new BigInteger(numericIban.toString());
             return ibanNumber.remainder(new BigInteger("97")).intValue() == 1;

@@ -31,6 +31,8 @@ public class DailyBalanceSummaryJob {
     private final NotificationProviderService notificationProviderService;
     private final Clock clock;
 
+    // injecting a plain java.time.Clock instead of calling Instant.now() directly everywhere,
+    // learned this is what actually let the test suite freeze time and stub a fixed 8am instant
     public DailyBalanceSummaryJob(ProfileServiceClient profileServiceClient,
                                   AccountServiceClient accountServiceClient,
                                   NotificationProviderService notificationProviderService,
@@ -72,6 +74,9 @@ public class DailyBalanceSummaryJob {
         }
     }
 
+    // scanning literally every zone id the jvm knows about every single run, learned this is
+    // simple and correct but not exactly cheap, fine at this scale, would probably precompute
+    // a smaller list of zones actually used by real customers if this had to run at high volume
     private List<String> findTimezonesAtHour(Instant now, int hour) {
         return ZoneId.getAvailableZoneIds().stream()
                 .filter(zoneId -> {
@@ -111,6 +116,8 @@ public class DailyBalanceSummaryJob {
                 accountServiceClient.getAggregateBalancesBatch(userIds);
 
         // Convert balance list into a Map for O(1) instantaneous lookup during the loop
+        // learned collectors.tomap needs a key function and a value function, here the value
+        // function is just identity, keeping the whole record as the map's value unchanged
         return balances.stream()
                 .collect(Collectors.toMap(
                         AccountServiceClient.UserAggregateBalanceResponse::userId,

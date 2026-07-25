@@ -35,6 +35,8 @@ public class AuditLogEntity {
     @Column(name = "changed_fields_json", nullable = false, updatable = false, columnDefinition = "TEXT")
     private String changedFieldsJson;
 
+    // jpa still needs this no arg constructor to exist even on an otherwise immutable entity,
+    // it builds the object first through reflection, then fills in the fields from the row
     public AuditLogEntity() {}
 
     public AuditLogEntity(LocalDateTime timestamp, Long userId, String eventType, String changedFieldsJson) {

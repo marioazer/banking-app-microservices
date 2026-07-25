@@ -50,6 +50,8 @@ public class TwoFactorCode {
 
     // --- Rich Domain Helper Methods ---
 
+    // this kind of method living right on the entity is sometimes called a rich domain model,
+    // the expiry logic lives with the data it operates on instead of being scattered into a service
     /**
      * Checks if the 5-minute window has passed.
      */

@@ -1,3 +1,6 @@
+-- this module actually starts at V1, unlike auth/profile/transaction which jump straight to
+-- a later version number, learned flyway just cares that this is the very first migration
+-- it has never seen before, the starting number itself does not have to be 1 everywhere
 -- ===========================================================================
 -- 1. Create Enums for Strict Type Safety
 -- ===========================================================================
