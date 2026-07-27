@@ -47,6 +47,8 @@ graph TD
 
 `account-service` is the sole owner of the `accounts`/`transactions` tables — every other service that needs to move money or read balances goes through its internal API (`/api/v1/internal/**`) rather than touching Postgres directly, keeping each service's data ownership boundary clean.
 
+`notification-service`'s internal Feign clients default to `localhost` (`:8083` for account-service, `:8082` for profile-service) so the whole stack works out of the box locally; the k8s `prod` profile overrides these via `PROFILE_SERVICE_URL`/`ACCOUNT_SERVICE_URL` env vars to reach the in-cluster service names instead.
+
 ## Tech stack
 
 - **Java 17 / Spring Boot 3.3** — Spring Web, Spring Security (OAuth2 Resource Server), Spring Data JPA, Spring AOP, Spring Kafka, Spring Cache (Redis), OpenFeign
@@ -70,20 +72,43 @@ This system was implemented against 10 functional-requirement documents (FR1–F
 | `04-notification-service` | 8085 | Kafka-driven real-time alerts + scheduled daily balance summary (no REST API) |
 | `05-audit-service` | 8086 | Immutable, insert-only audit log of profile/KYC changes (no REST API) |
 
-## Running locally
+## Running this project
+
+**Prerequisites:** Docker Desktop running, Java 17 (JDK), and ports `5432`, `9092`, `6379`, and `8081`-`8086` free. No `.env` file or secrets setup needed — each service's `application.yml` already has dev-profile defaults that match `docker-compose.yml`, so this runs with zero configuration.
+
+**1. Clone and start the infra stack** (Postgres, Kafka in KRaft mode, Redis) from the repo root:
 
 ```bash
-# from the repo root
-docker-compose up -d          # Postgres, Kafka (KRaft), Redis
-
-# in separate terminals, from each service's own directory
-./mvnw spring-boot:run         # repeat per service, one per terminal
+git clone <this-repo-url>
+cd my-banking-project
+docker-compose up -d
 ```
 
-Each service also runs its own tests independently:
+**2. Start each service**, one per terminal, from that service's own directory (Windows: use `mvnw.cmd spring-boot:run` instead of `./mvnw spring-boot:run`):
+
+| # | Directory | Command | Port |
+|---|---|---|---|
+| 1 | `01-auth-service` | `./mvnw spring-boot:run` | 8081 |
+| 2 | `02-profile-service` | `./mvnw spring-boot:run` | 8082 |
+| 3 | `03-account-service` | `./mvnw spring-boot:run` | 8083 |
+| 4 | `03-transaction-service` | `./mvnw spring-boot:run` | 8084 |
+| 5 | `04-notification-service` | `./mvnw spring-boot:run` | 8085 |
+| 6 | `05-audit-service` | `./mvnw spring-boot:run` | 8086 |
+
+`transaction-service` and `notification-service` call `account-service`/`profile-service` internally, so it's cleanest to start those two first — but since those are just REST calls, starting all six in any order works too as long as they're all up before you exercise the API.
+
+**3. Verify it's working** — open any of the Swagger UIs below and try an endpoint (e.g. `POST /api/v1/auth/register` on the auth-service docs).
+
+**4. Run the tests** for any service:
 
 ```bash
 ./mvnw test                    # run from inside any one service's directory
+```
+
+**5. Shut down** the infra stack when you're done:
+
+```bash
+docker-compose down
 ```
 
 ### API docs
