@@ -15,7 +15,7 @@
     <artifactId>auth-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>auth-service</name>
-    <description/>
+    <description>Identity &amp; Access Management: login, device fingerprinting, TOTP/SMS 2FA, session refresh and logout.</description>
     <url/>
     <licenses>
         <license/>
@@ -68,6 +68,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- interactive API docs at /swagger-ui.html, generated from the controllers/DTOs already
+             here with no extra annotations required for a baseline UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

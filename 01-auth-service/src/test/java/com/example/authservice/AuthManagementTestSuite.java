@@ -9,6 +9,7 @@ import com.example.authservice.repository.BlacklistedTokenRepository;
 import com.example.authservice.repository.RecognizedDeviceRepository;
 import com.example.authservice.repository.RefreshTokenRepository;
 import com.example.authservice.repository.TwoFactorCodeRepository;
+import com.example.authservice.repository.UserRepository;
 import com.example.authservice.security.TokenType;
 import com.example.authservice.service.AuthSecurityService;
 import com.example.authservice.service.JwtService;
@@ -85,6 +86,9 @@ class AuthManagementTestSuite {
 
     @MockBean
     private RefreshTokenRepository refreshTokenRepository;
+
+    @MockBean
+    private UserRepository userRepository;
 
     @MockBean
     private BlacklistedTokenRepository blacklistedTokenRepository;
@@ -306,6 +310,7 @@ class AuthManagementTestSuite {
 
         RefreshToken activeToken = new RefreshToken(1L, hashedToken);
         given(refreshTokenRepository.findByTokenHash(hashedToken)).willReturn(Optional.of(activeToken));
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new Cookie("Refresh-Token", rawRefreshToken)))

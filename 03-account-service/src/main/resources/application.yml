@@ -13,6 +13,21 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  # auth-service and profile-service already have tables sitting in this same shared local
+  # "banking" database via Hibernate ddl-auto (they don't use Flyway at all) - Flyway refuses to
+  # touch a non-empty schema with no history table as a safety check, so baseline it locally.
+  # Not needed in prod, where each service is expected to have its own dedicated database.
+  flyway:
+    baseline-on-migrate: true
+    # default baseline-version is "1", which collides with this service's own V1 migration and
+    # would make Flyway skip it (thinking it's already covered by the baseline) - 0 guarantees
+    # V1 onward still actually run.
+    baseline-version: "0"
 
 server:
   port: 8083
+  # Internal callers (transaction-service's AccountServiceClient) parse this message field to
+  # translate a rejected transfer/debit back into the same error locally - Spring Boot hides it
+  # by default for security, but these are service-to-service endpoints, not public ones.
+  error:
+    include-message: always

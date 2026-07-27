@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 public class PreferenceService {
@@ -69,14 +70,34 @@ public class PreferenceService {
     // orElseGet takes a supplier instead of a plain value like orElse does, so the new entity
     // only actually gets constructed when the optional is truly empty, not on every single call
     private UserPreferenceEntity findOrCreateDefault(Long userId) {
-        return preferenceRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    UserPreferenceEntity newEntity = new UserPreferenceEntity();
-                    newEntity.setUserId(userId);
-                    newEntity.setAlertThresholdAmount(DEFAULT_ALERT_THRESHOLD);
-                    newEntity.setDailySummaryEnabled(DEFAULT_DAILY_SUMMARY_ENABLED);
-                    newEntity.setTimezone(DEFAULT_TIMEZONE);
-                    return newEntity;
-                });
+        return preferenceRepository.findByUserId(userId).orElseGet(() -> buildDefault(userId));
+    }
+
+    /**
+     * Read-only lookup backing GET /api/v1/profile/alerts/{userId}, called by notification-service
+     * (FR9.2 AC2) to evaluate a real-time transaction alert. Unlike findOrCreateDefault, a user
+     * with no row yet is never persisted just because someone read their (default) preferences.
+     */
+    @Transactional(readOnly = true)
+    public UserPreferenceEntity getPreferences(Long userId) {
+        return preferenceRepository.findByUserId(userId).orElseGet(() -> buildDefault(userId));
+    }
+
+    /**
+     * Fulfills FR10.2 AC2: users opted into the daily summary for a given timezone, read by
+     * notification-service's scheduled batch job.
+     */
+    @Transactional(readOnly = true)
+    public List<UserPreferenceEntity> getUsersForDailySummary(String timezone) {
+        return preferenceRepository.findByDailySummaryEnabledTrueAndTimezone(timezone);
+    }
+
+    private UserPreferenceEntity buildDefault(Long userId) {
+        UserPreferenceEntity newEntity = new UserPreferenceEntity();
+        newEntity.setUserId(userId);
+        newEntity.setAlertThresholdAmount(DEFAULT_ALERT_THRESHOLD);
+        newEntity.setDailySummaryEnabled(DEFAULT_DAILY_SUMMARY_ENABLED);
+        newEntity.setTimezone(DEFAULT_TIMEZONE);
+        return newEntity;
     }
 }

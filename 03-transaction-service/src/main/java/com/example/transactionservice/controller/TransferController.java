@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -93,6 +94,9 @@ public class TransferController {
         if (!authentication.isAuthenticated()) {
             throw new SecurityException("User is not authenticated");
         }
-        return Long.valueOf(authentication.getName());
+        // The JWT subject holds the username, not the id — auth-service puts the numeric
+        // userId in its own claim instead, since this service has no User table to resolve it from.
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        return jwt.getClaim("userId");
     }
 }

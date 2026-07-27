@@ -20,8 +20,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,6 +30,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -41,6 +42,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * The real AccountService and AccountMapper are autowired so masking/filtering/ownership logic
  * is genuinely exercised, not just stubbed; only the JPA repositories are mocked.
+ *
+ * Authentication is mocked via SecurityMockMvcRequestPostProcessors.jwt() instead of
+ * @WithMockUser, since this service now runs as a real OAuth2 resource server and its
+ * controllers read the caller's id off a Jwt principal's "userId" claim - a plain
+ * @WithMockUser principal is a Spring Security User, not a Jwt, and would fail the cast.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -78,25 +84,36 @@ class AccountServiceTestSuite {
         activeChecking.setStatus(AccountStatus.ACTIVE);
     }
 
+    // mocks the same Jwt-shaped principal the real oauth2 resource server filter builds in
+    // production - the "scope" claim drives the SCOPE_FULL_AUTH authority via the default
+    // JwtGrantedAuthoritiesConverter, and "userId" is what the controllers actually read
+    private static RequestPostProcessor fullAuthUser(long userId) {
+        return jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", userId));
+    }
+
+    // same idea but with a Pre-Auth scope, simulating a session where 2FA was never completed
+    private static RequestPostProcessor preAuthUser(long userId) {
+        return jwt().jwt(j -> j.claim("scope", "PRE_AUTH").claim("userId", userId));
+    }
+
     /* ==========================================================
        USER STORY: 5.3 - Consolidated Dashboard API
        ========================================================== */
 
     // checking the dashboard endpoint filters out closed accounts and masks the raw account number
-    // withmockuser simulates user 42 logged in with a full auth session
+    // simulates user 42 logged in with a full auth session
     // stub the repository so this user's non closed accounts come back as just the one fixture account
     // hit get /api/v1/accounts
     // expect just one account in the response, checking type, masked number showing only last four digits,
     // and the routing number coming through in full since that one is not sensitive the same way
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 1: Dashboard excludes CLOSED accounts, masks account number - [MEANT TO PASS]")
     void testBlock1_dashboardExcludesClosedAccountsAndMasksNumber() throws Exception {
         // Requirement Cites: [Story 5.2 - AC1,AC2], [Story 5.3 - AC3,AC4]
         given(accountRepository.findByUserIdAndStatusNot(42L, AccountStatus.CLOSED))
                 .willReturn(List.of(activeChecking));
 
-        mockMvc.perform(get("/api/v1/accounts"))
+        mockMvc.perform(get("/api/v1/accounts").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].accountType").value("CHECKING"))
@@ -109,13 +126,12 @@ class AccountServiceTestSuite {
     // hit the dashboard endpoint
     // expect a normal 200 ok with a zero length array, an empty account list is a valid state, not a bug
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 2: Dashboard returns empty array (not an error) when user has no active accounts - [MEANT TO PASS]")
     void testBlock2_emptyDashboardWhenNoActiveAccounts() throws Exception {
         // Requirement Cites: [Story 5.3 - AC3,AC4] (edge case)
         given(accountRepository.findByUserIdAndStatusNot(42L, AccountStatus.CLOSED)).willReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/accounts"))
+        mockMvc.perform(get("/api/v1/accounts").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -126,14 +142,13 @@ class AccountServiceTestSuite {
     // that param should be completely ignored, the repo call still only ever used the real jwt user id
     // so the response should reflect user 42's data, which is empty here, not user 999's
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 3: userId is extracted from the JWT/SecurityContext, not a spoofable request param - [MEANT TO PASS]")
     void testBlock3_userIdExtractedFromSecurityContextNotParams() throws Exception {
         // Requirement Cites: [Story 5.3 - AC2] (IDOR prevention)
         given(accountRepository.findByUserIdAndStatusNot(42L, AccountStatus.CLOSED)).willReturn(List.of());
 
         // A spoofed userId query param must be ignored; the repository is still queried with 42 (the JWT principal)
-        mockMvc.perform(get("/api/v1/accounts?userId=999"))
+        mockMvc.perform(get("/api/v1/accounts?userId=999").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -143,20 +158,19 @@ class AccountServiceTestSuite {
        ========================================================== */
 
     // making sure a pre auth token, meaning 2fa was never finished, cannot reach the dashboard
-    // withmockuser here only grants scope_pre_auth instead of the full auth scope the other tests use
+    // only grants scope_pre_auth instead of the full auth scope the other tests use
     // hit the dashboard endpoint with that partial authority
     // expect a 403 forbidden, since the class level security check requires full auth specifically
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_PRE_AUTH"})
     @DisplayName("Block 4: Pre-Auth JWT (2FA incomplete) is rejected with 403 on the dashboard - [MEANT TO FAIL]")
     void testBlock4_preAuthTokenRejectedOnDashboard() throws Exception {
         // Requirement Cites: [Story 5.4 - AC1, AC2]
-        mockMvc.perform(get("/api/v1/accounts"))
+        mockMvc.perform(get("/api/v1/accounts").with(preAuthUser(42)))
                 .andExpect(status().isForbidden());
     }
 
     // similar idea to the last test but this time there is no logged in user at all
-    // no withmockuser annotation on this one on purpose
+    // no auth request post processor on this one on purpose
     // hit the dashboard endpoint completely unauthenticated
     // expect some flavor of 4xx client error, confirming anonymous requests never reach real account data
     @Test
@@ -172,20 +186,19 @@ class AccountServiceTestSuite {
        ========================================================== */
 
     // end to end style check that pulls together masking, filtering and correct balance formatting
-    // withmockuser gives a proper full auth session for user 42
+    // gives a proper full auth session for user 42
     // stub the repository to return the one active checking account fixture
     // hit the dashboard endpoint
     // expect the masked number to only show the last four digits, the balance to come through as
     // a real number not a string, the routing number in full, and status reported as active
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Final Block: Full-Auth user retrieves masked, filtered, correctly-priced dashboard - [MEANT TO PASS]")
     void testFinalAC_fullAuthUserGetsMaskedFilteredDashboard() throws Exception {
         // Requirement Cites: [Story 5.2 - AC1,AC2,AC3], [Story 5.3 - AC1,AC2,AC3,AC4], [Story 5.4 - AC1,AC2]
         given(accountRepository.findByUserIdAndStatusNot(42L, AccountStatus.CLOSED))
                 .willReturn(List.of(activeChecking));
 
-        mockMvc.perform(get("/api/v1/accounts"))
+        mockMvc.perform(get("/api/v1/accounts").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].maskedAccountNumber").value("......3210"))
                 .andExpect(jsonPath("$[0].availableBalance").value(1500.0))
@@ -205,7 +218,6 @@ class AccountServiceTestSuite {
     // hit get /api/v1/accounts/1/transactions with no query params at all
     // expect status ok and the size field in the response to reflect the real default of fifty
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 6: Default pagination applies size=50 and DESC sort by createdAt - [MEANT TO PASS]")
     void testBlock6_defaultPaginationAppliedCorrectly() throws Exception {
         // Requirement Cites: [Story 6.2 - AC1, AC2, AC3]
@@ -215,7 +227,7 @@ class AccountServiceTestSuite {
         given(transactionRepository.findByAccountId(eq(1L), eq(PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt")), 0));
 
-        mockMvc.perform(get("/api/v1/accounts/1/transactions"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(50));
     }
@@ -230,7 +242,6 @@ class AccountServiceTestSuite {
     // hit the endpoint with the type=DEBIT query param
     // expect one transaction back in the content array, and that its type is debit
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 7: type=DEBIT routes to the filtered repository query - [MEANT TO PASS]")
     void testBlock7_debitFilterUsesFilteredQuery() throws Exception {
         // Requirement Cites: [Story 6.3 - AC1]
@@ -239,7 +250,7 @@ class AccountServiceTestSuite {
         given(transactionRepository.findByAccountIdAndTransactionType(eq(1L), eq(TransactionType.DEBIT), any()))
                 .willReturn(new PageImpl<>(List.of(debit)));
 
-        mockMvc.perform(get("/api/v1/accounts/1/transactions").param("type", "DEBIT"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions").param("type", "DEBIT").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].transactionType").value("DEBIT"));
@@ -251,7 +262,6 @@ class AccountServiceTestSuite {
     // hit the endpoint with no type param at all
     // expect both transactions back in the content array
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 8: No type filter returns all transactions via the unfiltered query - [MEANT TO PASS]")
     void testBlock8_noFilterReturnsAllTransactions() throws Exception {
         // Requirement Cites: [Story 6.3 - AC2]
@@ -261,7 +271,7 @@ class AccountServiceTestSuite {
         given(transactionRepository.findByAccountId(eq(1L), any()))
                 .willReturn(new PageImpl<>(List.of(credit, debit)));
 
-        mockMvc.perform(get("/api/v1/accounts/1/transactions"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2));
     }
@@ -276,7 +286,6 @@ class AccountServiceTestSuite {
     // hit /api/v1/accounts/1/transactions logged in as user 42
     // expect a 403 forbidden, confirming the ownership check runs before any transaction data leaks
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 9: Requesting another user's accountId is rejected with 403 - [MEANT TO FAIL]")
     void testBlock9_ownershipMismatchReturns403() throws Exception {
         // Requirement Cites: [Story 6.4 - AC3]
@@ -285,7 +294,7 @@ class AccountServiceTestSuite {
         notOwned.setUserId(999L);
         given(accountRepository.findById(1L)).willReturn(Optional.of(notOwned));
 
-        mockMvc.perform(get("/api/v1/accounts/1/transactions"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions").with(fullAuthUser(42)))
                 .andExpect(status().isForbidden());
     }
 
@@ -296,7 +305,6 @@ class AccountServiceTestSuite {
     // so spring maps it to a real http status instead of letting it blow up as an unhandled 500
     // expect some flavor of 4xx client error back
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Block 10: Non-existent accountId returns 404, not an unhandled 500 - [MEANT TO FAIL]")
     void testBlock10_nonExistentAccountIdReturns404() throws Exception {
         // Requirement Cites: [Story 6.4 - AC3] (invalid ID path)
@@ -305,20 +313,19 @@ class AccountServiceTestSuite {
         // a proper 404 rather than letting it escape as an unhandled 500.
         given(accountRepository.findById(999L)).willReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/v1/accounts/999/transactions"))
+        mockMvc.perform(get("/api/v1/accounts/999/transactions").with(fullAuthUser(42)))
                 .andExpect(status().is4xxClientError());
     }
 
     // same pre auth restriction as the dashboard test earlier, but this time on the transactions endpoint
-    // withmockuser only grants scope_pre_auth here, meaning 2fa was never completed
+    // only grants scope_pre_auth here, meaning 2fa was never completed
     // hit the transactions endpoint for account 1 with that partial authority
     // expect a 403 forbidden since the class level preauthorize check covers every endpoint in this controller
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_PRE_AUTH"})
     @DisplayName("Block 11: Pre-Auth JWT cannot access transaction history - [MEANT TO FAIL]")
     void testBlock11_preAuthTokenBlockedFromTransactionHistory() throws Exception {
         // Requirement Cites: [Story 5.4 - AC1, AC2] (class-level @PreAuthorize applies to all endpoints)
-        mockMvc.perform(get("/api/v1/accounts/1/transactions"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions").with(preAuthUser(42)))
                 .andExpect(status().isForbidden());
     }
 
@@ -334,7 +341,6 @@ class AccountServiceTestSuite {
     // expect status ok, the one credit transaction in the content array, and the page metadata
     // (total elements, total pages, current page number) all reflecting a single result correctly
     @Test
-    @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     @DisplayName("Final Block: Owner retrieves paginated, filtered, well-formed transaction page - [MEANT TO PASS]")
     void testFinalAC_ownerRetrievesPaginatedFilteredHistory() throws Exception {
         // Requirement Cites: [Story 6.2 - AC1,AC2,AC3], [Story 6.3 - AC1,AC2], [Story 6.4 - AC1,AC2,AC3,AC4]
@@ -344,7 +350,7 @@ class AccountServiceTestSuite {
                 eq(1L), eq(TransactionType.CREDIT), eq(PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt")))))
                 .willReturn(new PageImpl<>(List.of(credit), PageRequest.of(0, 50), 1));
 
-        mockMvc.perform(get("/api/v1/accounts/1/transactions?page=0&size=50&type=CREDIT"))
+        mockMvc.perform(get("/api/v1/accounts/1/transactions?page=0&size=50&type=CREDIT").with(fullAuthUser(42)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].transactionType").value("CREDIT"))
                 .andExpect(jsonPath("$.totalElements").value(1))

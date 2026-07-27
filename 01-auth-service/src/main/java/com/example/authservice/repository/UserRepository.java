@@ -1,7 +1,12 @@
 package com.example.authservice.repository;
 
-// another empty scaffold class, learned this project never actually needed a real user lookup
-// repository since AuthController's getUserById() is just a hardcoded stand in for one
-public class UserRepository {
+import com.example.authservice.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByUsername(String username);
 }

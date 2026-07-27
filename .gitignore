@@ -24,3 +24,8 @@ override.tf.json
 # windows and mac both leave these behind when you browse a folder, pure clutter, never useful in git
 .DS_Store
 Thumbs.db
+
+# no .env file exists in this repo today, but this is a banking-flavored project - keep it out
+# defensively in case one ever gets created for local secrets
+.env
+*.env

@@ -41,6 +41,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/login").permitAll()
                 .requestMatchers("/api/v1/auth/verify-2fa/**").permitAll()
                 .requestMatchers("/api/v1/auth/refresh").permitAll()
+                // Swagger/OpenAPI UI - documentation, not application data
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 
                 // The logout endpoint explicitly requires authentication per FR2.4
                 .requestMatchers("/api/v1/auth/logout").authenticated()

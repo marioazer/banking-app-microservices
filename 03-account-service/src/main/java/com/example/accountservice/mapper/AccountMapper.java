@@ -35,7 +35,7 @@ public class AccountMapper {
         if (rawAccountNumber.length() <= 4) {
             return rawAccountNumber; // Failsafe for unusually short or malformed numbers
         }
-        
+
         int length = rawAccountNumber.length();
         String lastFourDigits = rawAccountNumber.substring(length - 4);
 
@@ -43,7 +43,7 @@ public class AccountMapper {
         // learned string.repeat is a pretty recent java addition, used to have to build this
         // kind of padding with a loop or stringbuilder before it existed
         String mask = ".".repeat(length - 4);
-        
+
         return mask + lastFourDigits;
     }
 }

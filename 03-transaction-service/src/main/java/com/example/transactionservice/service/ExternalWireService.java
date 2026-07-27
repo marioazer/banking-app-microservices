@@ -1,13 +1,12 @@
 package com.example.transactionservice.service;
 
 import com.example.transactionservice.annotation.RequiresKyc;
+import com.example.transactionservice.client.AccountServiceClient;
 import com.example.transactionservice.dto.ExternalWireRequestDto;
 import com.example.transactionservice.dto.TransferResponseDto;
 import com.example.transactionservice.event.LargeTransferRequestedEvent;
-import com.example.transactionservice.model.AccountEntity;
 import com.example.transactionservice.model.TransactionEntity;
 import com.example.transactionservice.model.TransactionStatus;
-import com.example.transactionservice.repository.AccountRepository;
 import com.example.transactionservice.repository.TransactionRepository;
 import com.example.transactionservice.util.IbanSwiftValidator;
 import org.springframework.http.HttpStatus;
@@ -22,7 +21,7 @@ import java.util.UUID;
 @Service
 public class ExternalWireService {
 
-    private final AccountRepository accountRepository;
+    private final AccountServiceClient accountServiceClient;
     private final TransactionRepository transactionRepository;
     private final IbanSwiftValidator validator;
     private final KafkaTemplate<String, LargeTransferRequestedEvent> kafkaTemplate;
@@ -33,11 +32,11 @@ public class ExternalWireService {
     private static final BigDecimal FRAUD_THRESHOLD = new BigDecimal("5000.00");
     private static final String FRAUD_TOPIC = "large-transfers-review";
 
-    public ExternalWireService(AccountRepository accountRepository,
+    public ExternalWireService(AccountServiceClient accountServiceClient,
                                TransactionRepository transactionRepository,
                                IbanSwiftValidator validator,
                                KafkaTemplate<String, LargeTransferRequestedEvent> kafkaTemplate) {
-        this.accountRepository = accountRepository;
+        this.accountServiceClient = accountServiceClient;
         this.transactionRepository = transactionRepository;
         this.validator = validator;
         this.kafkaTemplate = kafkaTemplate; // Injected to publish high-value transfer events
@@ -50,12 +49,13 @@ public class ExternalWireService {
     @RequiresKyc
     public TransferResponseDto initiateWire(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
 
-        // 1-3. Validate format, lock+authorize the account, and verify sufficient funds
-        AccountEntity fromAccount = validateAndLockAccount(userId, fromAccountId, request);
+        // 1. Validate format
+        validateFormat(request);
 
-        // 4. Pre-reserve the funds by deducting them immediately
-        fromAccount.setAvailableBalance(fromAccount.getAvailableBalance().subtract(request.amount()));
-        accountRepository.save(fromAccount);
+        // 2-3. Pre-reserve the funds: account-service locks the row, verifies ownership/funds,
+        // debits it, and records the DEBIT transaction-history row, all atomically.
+        accountServiceClient.debit(fromAccountId, new AccountServiceClient.DebitRequest(
+                userId, request.amount(), "External Wire to " + request.beneficiaryName()));
 
         // 5. Threshold Check Logic[cite: 2]
         TransactionStatus finalStatus = determineTransactionStatus(request.amount());
@@ -71,29 +71,14 @@ public class ExternalWireService {
         return new TransferResponseDto(transactionId, finalStatus.name());
     }
 
-    private AccountEntity validateAndLockAccount(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
-        // 1. Strict Formatting Validation[cite: 2]
+    private void validateFormat(ExternalWireRequestDto request) {
+        // Strict Formatting Validation[cite: 2]
         if (!validator.isValidIban(request.iban())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid IBAN or SWIFT code format.");
         }
         if (!validator.isValidSwift(request.swiftCode())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid IBAN or SWIFT code format.");
         }
-
-        // 2. Lock the account row to prevent race conditions
-        AccountEntity fromAccount = accountRepository.findByIdForUpdate(fromAccountId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found."));
-
-        if (!fromAccount.getUserId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized account access.");
-        }
-
-        // 3. Verify Sufficient Funds[cite: 2]
-        if (fromAccount.getAvailableBalance().compareTo(request.amount()) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_FUNDS");
-        }
-
-        return fromAccount;
     }
 
     // compareTo returning greater than zero means amount is strictly bigger than the threshold,

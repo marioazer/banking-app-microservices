@@ -23,15 +23,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -237,11 +241,11 @@ class ProfileServiceTestSuite {
     // expect a 400 bad request with an error saying the override reason is mandatory
     @Test
     @DisplayName("Block 1: Admin Override Fails When Reason Text is Blank - [MEANT TO FAIL]")
-    @WithMockUser(username = "500", roles = {"COMPLIANCE_OFFICER"})
     void testBlock1_AdminOverride_MissingReason_ReturnsBadRequest() throws Exception {
         String requestJson = objectMapper.writeValueAsString(Map.of("status", "APPROVED", "reason", "  "));
 
         mockMvc.perform(patch("/api/v1/admin/profiles/100/kyc")
+                .with(jwt().jwt(j -> j.claim("userId", 500L)).authorities(new SimpleGrantedAuthority("ROLE_COMPLIANCE_OFFICER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
                 .andExpect(status().isBadRequest())
@@ -257,13 +261,13 @@ class ProfileServiceTestSuite {
     // and a kafka event went out on kyc-events so other services hear about the change
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Admin Override Updates DB, Audits, and Broadcasts Kafka Event - [MEANT TO PASS]")
-    @WithMockUser(username = "500", roles = {"COMPLIANCE_OFFICER"})
     void testFinalAC_AdminOverride_ValidRequest_SavesAuditLogAndPublishesKafka() throws Exception {
         given(userProfileRepository.findById(100L)).willReturn(Optional.of(mockUser));
 
         String requestJson = objectMapper.writeValueAsString(Map.of("status", "APPROVED", "reason", "Manual verification of physical passport."));
 
         mockMvc.perform(patch("/api/v1/admin/profiles/100/kyc")
+                .with(jwt().jwt(j -> j.claim("userId", 500L)).authorities(new SimpleGrantedAuthority("ROLE_COMPLIANCE_OFFICER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
                 .andExpect(status().isOk())
@@ -309,7 +313,6 @@ class ProfileServiceTestSuite {
     // and that the repository actually got told to save it
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Valid Contact Info Update Persists to Database - [MEANT TO PASS]")
-    @WithMockUser(username = "100")
     void testFinalAC_UpdateContactInfo_ValidDto_SavesUserProfile() throws Exception {
         given(userProfileRepository.findById(100L)).willReturn(Optional.of(mockUser));
 
@@ -321,6 +324,7 @@ class ProfileServiceTestSuite {
         dto.setZipCode("95110");
 
         mockMvc.perform(put("/api/v1/profiles/me/contact-info")
+                .with(jwt().jwt(j -> j.claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -369,7 +373,6 @@ class ProfileServiceTestSuite {
     // then confirm the saved entity has the right user id and the right threshold amount attached
     @Test
     @DisplayName("Block: Update alert threshold with a valid payload persists the preference - [MEANT TO PASS]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateAlertThreshold_ValidPayload_Persists() throws Exception {
         // Requirement Cites: [Story 9.1 - AC1, AC2]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
@@ -377,6 +380,7 @@ class ProfileServiceTestSuite {
         UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("250.00"));
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
@@ -393,7 +397,6 @@ class ProfileServiceTestSuite {
     // a hundred dollar default is not what we check here, just that summary is off and timezone is utc
     @Test
     @DisplayName("Block (fixed): Threshold-only payload is sufficient - daily-summary fields are no longer required - [MEANT TO PASS]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateAlertThreshold_ThresholdOnlyPayload_NoLongerRequiresDailySummaryFields() throws Exception {
         // Requirement Cites: [Story 9.1 - AC1] ("expose an endpoint... to set alert_threshold_amount")
         // /threshold and /daily-summary now use separate DTOs (UpdateAlertThresholdRequestDto /
@@ -404,6 +407,7 @@ class ProfileServiceTestSuite {
         String thresholdOnlyPayload = "{\"alertThresholdAmount\": 250.00}";
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(thresholdOnlyPayload))
                 .andExpect(status().isOk());
@@ -423,7 +427,6 @@ class ProfileServiceTestSuite {
     // then confirm the new threshold saved but the daily summary flag and timezone are exactly as before
     @Test
     @DisplayName("Block: Updating the threshold leaves an existing daily-summary preference untouched - [MEANT TO PASS]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateAlertThreshold_PreservesExistingDailySummarySettings() throws Exception {
         // Requirement Cites: [Story 9.1 - AC1] (independent of Story 10.1's settings)
         UserPreferenceEntity existing = new UserPreferenceEntity();
@@ -436,6 +439,7 @@ class ProfileServiceTestSuite {
         UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("300.00"));
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
@@ -451,12 +455,12 @@ class ProfileServiceTestSuite {
     // expect a 400 bad request since the timezone has to be a real identifier like america/new_york
     @Test
     @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateDailySummary_InvalidTimezone_ReturnsBadRequest() throws Exception {
         // Requirement Cites: [Story 10.1 - AC2] (timezone validated as a real IANA identifier)
         UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Not/A_Real_Zone");
 
         mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
@@ -475,7 +479,6 @@ class ProfileServiceTestSuite {
     // last confirm the saved entity has the right user id, enabled flag and timezone
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Daily summary opt-in persists enabled flag and timezone - [MEANT TO PASS]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testFinalAC_UpdateDailySummarySettings_ValidPayload_Persists() throws Exception {
         // Requirement Cites: [Story 10.1 - AC1, AC2, AC3]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
@@ -483,6 +486,7 @@ class ProfileServiceTestSuite {
         UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Europe/London");
 
         mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -501,7 +505,6 @@ class ProfileServiceTestSuite {
     // then confirm the threshold amount saved is untouched while summary and timezone did update
     @Test
     @DisplayName("Block: Updating daily-summary settings leaves an existing alert threshold untouched - [MEANT TO PASS]")
-    @WithMockUser(username = "100", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock_UpdateDailySummary_PreservesExistingAlertThreshold() throws Exception {
         // Requirement Cites: [Story 10.1 - AC1] (independent of Story 9.1's settings)
         UserPreferenceEntity existing = new UserPreferenceEntity();
@@ -514,6 +517,7 @@ class ProfileServiceTestSuite {
         UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Asia/Tokyo");
 
         mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
+                .with(jwt().jwt(j -> j.claim("scope", "FULL_AUTH").claim("userId", 100L)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
@@ -538,6 +542,68 @@ class ProfileServiceTestSuite {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().is4xxClientError());
+    }
+
+    /* ==========================================================
+       USER STORY 9.2/10.2 (cross-service): Preference lookups for notification-service
+       (These back FR9/FR10's Feign clients - previously missing entirely, meaning
+       notification-service would 404 in a live cluster even though its own tests passed
+       against a mocked client.)
+       ========================================================== */
+
+    // happy path: notification-service asks for a user's preferences and gets back exactly
+    // what's stored, no authentication required since this is an internal service-to-service call
+    @Test
+    @DisplayName("Block: GET alerts/{userId} returns the stored preferences unauthenticated - [MEANT TO PASS]")
+    void testBlock_GetPreferences_ExistingRow_ReturnsStoredValues() throws Exception {
+        UserPreferenceEntity existing = new UserPreferenceEntity();
+        existing.setUserId(100L);
+        existing.setAlertThresholdAmount(new BigDecimal("250.00"));
+        existing.setDailySummaryEnabled(true);
+        existing.setTimezone("Europe/London");
+        given(preferenceRepository.findByUserId(100L)).willReturn(Optional.of(existing));
+
+        mockMvc.perform(get("/api/v1/profile/alerts/100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(100))
+                .andExpect(jsonPath("$.alertThresholdAmount").value(250.00))
+                .andExpect(jsonPath("$.dailySummaryEnabled").value(true))
+                .andExpect(jsonPath("$.timezone").value("Europe/London"));
+    }
+
+    // a user with no preference row yet should still get a coherent response (the documented
+    // defaults), not a 404 - and this lookup must never persist anything on its own
+    @Test
+    @DisplayName("Block: GET alerts/{userId} returns documented defaults for a user with no row yet - [MEANT TO PASS]")
+    void testBlock_GetPreferences_NoRow_ReturnsDefaultsWithoutPersisting() throws Exception {
+        given(preferenceRepository.findByUserId(999L)).willReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/profile/alerts/999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.alertThresholdAmount").value(100.00))
+                .andExpect(jsonPath("$.dailySummaryEnabled").value(false))
+                .andExpect(jsonPath("$.timezone").value("UTC"));
+
+        verify(preferenceRepository, never()).save(any());
+    }
+
+    // the daily-summary batch job asks for every user opted in for one specific timezone -
+    // confirm the response shape and that it's also reachable with no authentication
+    @Test
+    @DisplayName("Block: GET daily-summary-users filters by timezone and opt-in flag - [MEANT TO PASS]")
+    void testBlock_GetUsersForDailySummary_ReturnsOptedInUsersForTimezone() throws Exception {
+        UserPreferenceEntity optedIn = new UserPreferenceEntity();
+        optedIn.setUserId(200L);
+        optedIn.setAlertThresholdAmount(new BigDecimal("100.00"));
+        optedIn.setDailySummaryEnabled(true);
+        optedIn.setTimezone("America/New_York");
+        given(preferenceRepository.findByDailySummaryEnabledTrueAndTimezone("America/New_York"))
+                .willReturn(List.of(optedIn));
+
+        mockMvc.perform(get("/api/v1/profile/alerts/daily-summary-users").param("timezone", "America/New_York"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].userId").value(200));
     }
 
     /* ==========================================================

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.example.authservice.model.User;
 import com.example.authservice.security.TokenType;
 
 import io.jsonwebtoken.Claims;
@@ -39,6 +40,20 @@ public class JwtService {
     public String generateToken(UserDetails userDetails, TokenType tokenType) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("token_type", tokenType.name()); // Embed the boundary restriction
+
+        // Downstream services validate this token as an OAuth2 resource server, whose default
+        // JwtGrantedAuthoritiesConverter reads the "scope" claim and prefixes each value with
+        // "SCOPE_" - so a FULL_AUTH token here is what makes @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')")
+        // pass on account/transaction/profile-service. Pre-Auth tokens intentionally get no scope,
+        // since they are only ever meant to be used against auth-service's own /verify-2fa endpoints.
+        if (tokenType == TokenType.FULL_AUTH) {
+            extraClaims.put("scope", "FULL_AUTH");
+        }
+
+        // Every downstream controller extracts the caller's numeric userId off the token (it never
+        // has access to this service's User table), so the id has to travel as its own claim rather
+        // than relying on the subject, which holds the username instead.
+        extraClaims.put("userId", ((User) userDetails).getId());
 
         long expirationMillis = (tokenType == TokenType.FULL_AUTH) ? FULL_AUTH_EXPIRATION : PRE_AUTH_EXPIRATION;
 

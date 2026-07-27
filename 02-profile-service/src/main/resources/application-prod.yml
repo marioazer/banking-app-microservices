@@ -12,12 +12,23 @@ spring:
     show-sql: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
 # this is the hmac secret KycWebhookFilter uses to verify a webhook actually came from the real kyc vendor
 kyc:
   vendor:
     webhook:
       secret: ${KYC_WEBHOOK_SECRET}
+
+# jwt signing key this service verifies incoming access tokens against, comes from the same
+# k8s secret auth-service uses to sign them
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET_KEY}
 
 server:
   port: 8080

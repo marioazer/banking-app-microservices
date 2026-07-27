@@ -13,6 +13,15 @@ spring:
     show-sql: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    # KafkaTemplate<String, Object> here publishes real ProfileUpdatedEvent/KycStatusUpdatedEvent
+    # objects, not pre-serialized strings - without this, Spring Boot defaults to StringSerializer
+    # for the value too, which throws a ClassCastException the instant a real event object is sent.
+    # add.type.headers=false because the consumers (audit/notification-service) have their own,
+    # separately-defined event classes with the same shape, not this exact class on their classpath.
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
 server:
   # own port so this can run alongside auth-service and the rest locally without clashing

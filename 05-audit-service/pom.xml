@@ -12,7 +12,7 @@
 	<artifactId>audit-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>audit-service</name>
-	<description/>
+	<description>Immutable, insert-only audit trail for profile changes and KYC status updates, consumed entirely from Kafka.</description>
 	<url/>
 	<licenses>
 		<license/>

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -109,9 +110,9 @@ public class ProfileController {
     // =========================================================================
     
     private Long extractUserIdFromAuth(Authentication authentication) {
-        // Assuming the JWT subject holds the User ID as a String
-        // authentication.getName() is spring security's generic way to get whoever is logged in,
-        // here it happens to be the user id since that's what got put in the jwt subject at login
-        return Long.valueOf(authentication.getName());
+        // The JWT subject holds the username, not the id — auth-service puts the numeric
+        // userId in its own claim instead, since this service has no User table to resolve it from.
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        return jwt.getClaim("userId");
     }
 }

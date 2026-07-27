@@ -12,7 +12,7 @@
 	<artifactId>notification-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>notification-service</name>
-	<description/>
+	<description>Alerts &amp; communications: Kafka-driven real-time transaction alerts and a scheduled daily balance summary job, no REST API of its own.</description>
 	<url/>
 	<licenses>
 		<license/>

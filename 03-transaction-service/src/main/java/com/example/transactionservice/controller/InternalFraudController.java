@@ -1,10 +1,9 @@
 package com.example.transactionservice.controller;
 
+import com.example.transactionservice.client.AccountServiceClient;
 import com.example.transactionservice.model.TransactionEntity;
 import com.example.transactionservice.model.TransactionStatus;
-import com.example.transactionservice.model.AccountEntity;
 import com.example.transactionservice.repository.TransactionRepository;
-import com.example.transactionservice.repository.AccountRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -70,12 +69,12 @@ public class InternalFraudController {
 class FraudResolutionService {
 
     private final TransactionRepository transactionRepository;
-    private final AccountRepository accountRepository;
+    private final AccountServiceClient accountServiceClient;
 
-    public FraudResolutionService(TransactionRepository transactionRepository, 
-                                  AccountRepository accountRepository) {
+    public FraudResolutionService(TransactionRepository transactionRepository,
+                                  AccountServiceClient accountServiceClient) {
         this.transactionRepository = transactionRepository;
-        this.accountRepository = accountRepository;
+        this.accountServiceClient = accountServiceClient;
     }
 
     /**
@@ -110,15 +109,11 @@ class FraudResolutionService {
         transaction.setStatus(TransactionStatus.REJECTED);
         transaction.setDescription(transaction.getDescription() + " [Fraud Review: REJECTED. Notes: " + reviewerNotes + "]");
 
-        // same pessimistic locking query used during the original transfer, locking the row again
-        // here so a reversal cannot race against some other concurrent operation on this account
-        AccountEntity account = accountRepository.findByIdForUpdate(transaction.getAccountId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Source account missing during reversal"));
+        // account-service locks the row and adds the amount back atomically, same as the
+        // original debit did - it's the sole owner of the accounts table now.
+        accountServiceClient.credit(transaction.getAccountId(), new AccountServiceClient.CreditRequest(
+                transaction.getAmount(), "Wire reversed - fraud review rejected"));
 
-        // Add the exact amount back to the user's available balance[cite: 2].
-        account.setAvailableBalance(account.getAvailableBalance().add(transaction.getAmount()));
-
-        accountRepository.save(account);
         transactionRepository.save(transaction);
     }
 }

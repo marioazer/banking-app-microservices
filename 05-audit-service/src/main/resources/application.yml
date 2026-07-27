@@ -10,7 +10,17 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+      properties:
+        hibernate:
+          default_schema: audit
     show-sql: true
+  # account-service and transaction-service already occupy version numbers 1-4 in this shared
+  # local database's public schema/flyway history - audit-service's own V1 would collide there
+  # (different content, same version number), so it gets its own schema instead.
+  flyway:
+    schemas: audit
+    default-schema: audit
+    create-schemas: true
   kafka:
     # this service only ever consumes profile-events, it never publishes anything itself
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

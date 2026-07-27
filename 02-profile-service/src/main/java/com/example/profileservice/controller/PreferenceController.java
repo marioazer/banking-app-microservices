@@ -2,13 +2,18 @@ package com.example.profileservice.controller;
 
 import com.example.profileservice.dto.UpdateAlertThresholdRequestDto;
 import com.example.profileservice.dto.UpdateDailySummaryRequestDto;
+import com.example.profileservice.model.UserPreferenceEntity;
 import com.example.profileservice.service.PreferenceService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 // putting @PreAuthorize at the class level instead of on each method applies it to every single
 // endpoint in this controller at once, learned this saves repeating the same check three times
@@ -60,7 +65,47 @@ public class PreferenceController {
     }
 
     /**
-     * Cryptographically secures the endpoints against IDOR attacks by pulling 
+     * Local shape matching notification-service's ProfileServiceClient.UserPreferenceResponse
+     * exactly - that Feign client interface is the source of truth for this contract.
+     */
+    public record UserPreferenceResponse(
+            Long userId,
+            BigDecimal alertThresholdAmount,
+            Boolean dailySummaryEnabled,
+            String timezone
+    ) {}
+
+    /**
+     * Fulfills FR9.2 AC2: lets notification-service look up a user's alert threshold when
+     * evaluating a real-time transaction event. Internal, service-to-service only - permitAll
+     * overrides this controller's class-level SCOPE_FULL_AUTH check, and SecurityConfig exempts
+     * this path (GET only) from authentication entirely, matching ProfileController's existing
+     * /kyc-status internal-lookup pattern.
+     */
+    @GetMapping("/{userId}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<UserPreferenceResponse> getPreferences(@PathVariable Long userId) {
+        UserPreferenceEntity entity = preferenceService.getPreferences(userId);
+        return ResponseEntity.ok(new UserPreferenceResponse(
+                entity.getUserId(), entity.getAlertThresholdAmount(), entity.getDailySummaryEnabled(), entity.getTimezone()));
+    }
+
+    /**
+     * Fulfills FR10.2 AC2: lets notification-service's scheduled job fetch the batch of users
+     * opted into the daily summary for a given timezone. Internal, service-to-service only.
+     */
+    @GetMapping("/daily-summary-users")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<UserPreferenceResponse>> getUsersForDailySummary(@RequestParam String timezone) {
+        List<UserPreferenceResponse> users = preferenceService.getUsersForDailySummary(timezone).stream()
+                .map(entity -> new UserPreferenceResponse(
+                        entity.getUserId(), entity.getAlertThresholdAmount(), entity.getDailySummaryEnabled(), entity.getTimezone()))
+                .toList();
+        return ResponseEntity.ok(users);
+    }
+
+    /**
+     * Cryptographically secures the endpoints against IDOR attacks by pulling
      * the identity directly from the verified JWT token.
      */
     private Long extractUserIdFromAuth() {
@@ -71,6 +116,9 @@ public class PreferenceController {
         if (!authentication.isAuthenticated()) {
             throw new SecurityException("User is not authenticated");
         }
-        return Long.valueOf(authentication.getName());
+        // The JWT subject holds the username, not the id — auth-service puts the numeric
+        // userId in its own claim instead, since this service has no User table to resolve it from.
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        return jwt.getClaim("userId");
     }
 }

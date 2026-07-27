@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,10 +19,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.authservice.model.RefreshToken;
 import com.example.authservice.model.User;
 import com.example.authservice.repository.RefreshTokenRepository;
+import com.example.authservice.repository.UserRepository;
 import com.example.authservice.security.TokenType;
 import com.example.authservice.service.AuthSecurityService;
 import com.example.authservice.service.JwtService;
@@ -39,17 +42,20 @@ public class AuthController {
     private final JwtService jwtService;
     private final AuthSecurityService authSecurityService;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserRepository userRepository;
 
     // learned spring does not need an @Autowired annotation here since there is only one
     // constructor, it just automatically injects all four dependencies through this one
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           AuthSecurityService authSecurityService,
-                          RefreshTokenRepository refreshTokenRepository) {
+                          RefreshTokenRepository refreshTokenRepository,
+                          UserRepository userRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.authSecurityService = authSecurityService;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.userRepository = userRepository;
     }
 
     // ==========================================
@@ -231,11 +237,7 @@ public class AuthController {
         }
     }
     private User getUserById(Long userId) {
-        User dummyUser = new User();
-        dummyUser.setId(userId);
-        dummyUser.setUsername("johndoe");
-        return dummyUser;
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
-    
-    // Note: getUserById() mock omitted for brevity; this would call a UserRepository.
 }
