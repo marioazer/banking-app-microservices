@@ -45,7 +45,7 @@ graph TD
     Notif --> Redis
 ```
 
-`account-service` is the sole owner of the `accounts`/`transactions` tables — every other service that needs to move money or read balances goes through its internal API (`/api/v1/internal/**`) rather than touching Postgres directly, keeping each service's data ownership boundary clean.
+`account-service` is the sole owner of the `accounts`/`transactions` tables (the balance ledger and dashboard history) — every other service that needs to move money or read balances goes through its internal API (`/api/v1/internal/**`) rather than touching those tables directly. `transaction-service` now keeps its own `wire_transactions` table for tracking external wire transfer status and fraud-review state, so the two services no longer share a table between them — `transaction-service` just calls `account-service`'s internal API to actually debit/credit an account once a wire clears.
 
 `notification-service`'s internal Feign clients default to `localhost` (`:8083` for account-service, `:8082` for profile-service) so the whole stack works out of the box locally; the k8s `prod` profile overrides these via `PROFILE_SERVICE_URL`/`ACCOUNT_SERVICE_URL` env vars to reach the in-cluster service names instead.
 
