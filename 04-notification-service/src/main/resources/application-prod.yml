@@ -17,5 +17,13 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
 
+# Feign targets. The @FeignClient annotations default to localhost for docker-compose dev;
+# in the cluster these point at the in-cluster k8s service DNS names instead (same pattern as
+# transaction-service's application-prod.properties), overridable per-env via the *_SERVICE_URL vars.
+profile-service:
+  url: ${PROFILE_SERVICE_URL:http://profile-service:8080}
+account-service:
+  url: ${ACCOUNT_SERVICE_URL:http://account-service:8080}
+
 server:
   port: 8080

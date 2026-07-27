@@ -13,7 +13,7 @@ import java.util.List;
  */
 // second feign client in this service, same declarative pattern as ProfileServiceClient below,
 // just pointed at a different downstream service and url property
-@FeignClient(name = "account-service", url = "${account-service.url:http://account-service:8080}")
+@FeignClient(name = "account-service", url = "${account-service.url:http://localhost:8083}")
 public interface AccountServiceClient {
 
     /**

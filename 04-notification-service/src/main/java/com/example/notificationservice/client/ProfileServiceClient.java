@@ -13,7 +13,7 @@ import java.util.List;
  * Declarative REST client for communicating with the Profile Service.
  * Fulfills FR9.2 AC2 (Cache/Database Lookup) and FR10.2 AC2 (Identify users for batch job)[cite: 4, 5].
  */
-@FeignClient(name = "profile-service", url = "${profile-service.url:http://profile-service:8080}")
+@FeignClient(name = "profile-service", url = "${profile-service.url:http://localhost:8082}")
 public interface ProfileServiceClient {
 
     /**
