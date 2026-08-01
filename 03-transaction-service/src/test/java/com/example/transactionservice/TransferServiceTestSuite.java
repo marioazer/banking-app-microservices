@@ -48,18 +48,6 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * FR7 (Internal Funds Transfer) & FR8 (External Wire Transfers) acceptance tests,
- * mirroring the Block/Final-Block pattern established in AuthManagementTestSuite
- * and ProfileServiceTestSuite. Kafka is mocked (@MockBean), no live broker required.
- *
- * account-service is now the sole owner of the accounts/transactions tables (see
- * AccountServiceClient) - this suite mocks that Feign client instead of a local
- * AccountRepository, since TransferService/ExternalWireService no longer touch account
- * state directly. The pessimistic-locking/ownership/funds-check logic itself now lives in
- * account-service's own InternalAccountController and is verified there (manually, via the
- * docker-compose end-to-end check) rather than re-mocked here.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
@@ -132,10 +120,6 @@ class TransferServiceTestSuite {
         SecurityContextHolder.getContext().setAuthentication(jwtAuthentication(userId, "FULL_AUTH"));
     }
 
-    /* ==========================================================
-       USER STORY 7.1: Atomic Transfer Logic (@Transactional)
-       ========================================================== */
-
     // checking that trying to move more money than is actually available gets rejected -
     // account-service's InternalAccountController is where that check now actually runs, so this
     // test simulates its rejection by having the Feign client throw the same exception it would
@@ -143,7 +127,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 1: Insufficient funds rejects transfer with INSUFFICIENT_FUNDS - [MEANT TO FAIL]")
     void testBlock1_ExecuteTransfer_InsufficientFunds_ThrowsBadRequest() {
-        // Requirement Cites: [Story 7.1 - AC1]
         authenticateAsFullAuthUser(42);
         willThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_FUNDS"))
                 .given(accountServiceClient).transfer(any());
@@ -159,7 +142,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 2: Transfer between accounts not owned by the caller is forbidden - [MEANT TO FAIL]")
     void testBlock2_ExecuteTransfer_OwnershipMismatch_ThrowsForbidden() {
-        // Requirement Cites: [Story 7.1] ownership boundary implied by "own accounts" in FR7 feature statement
         authenticateAsFullAuthUser(42);
         willThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Both accounts must belong to the authenticated user"))
                 .given(accountServiceClient).transfer(any());
@@ -170,10 +152,6 @@ class TransferServiceTestSuite {
                 .hasMessageContaining("Both accounts must belong to the authenticated user");
     }
 
-    /* ==========================================================
-       USER STORY 7.2: High-Performance Locking (Pessimistic Locking)
-       ========================================================== */
-
     // the pessimistic locking itself now happens inside account-service (verified there via the
     // docker-compose end-to-end check), so from transaction-service's side the equivalent
     // guarantee to verify is that the transfer is delegated there with exactly the right request -
@@ -181,17 +159,12 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 3: Transfer delegates the balance mutation to account-service with the correct request - [MEANT TO PASS]")
     void testBlock3_ExecuteTransfer_DelegatesToAccountService() {
-        // Requirement Cites: [Story 7.2 - AC1]
         authenticateAsFullAuthUser(42);
 
         transferService.executeTransfer(42L, 1L, 2L, new BigDecimal("100.00"));
 
         verify(accountServiceClient).transfer(new AccountServiceClient.TransferRequest(42L, 1L, 2L, new BigDecimal("100.00")));
     }
-
-    /* ==========================================================
-       FINAL BLOCK: FR7 End-to-End Internal Transfer
-       ========================================================== */
 
     // full end to end test for a normal successful internal transfer, going through the real http endpoint
     // deliberately not wrapping this test itself in a transaction, since the real code relies on
@@ -202,7 +175,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Final Block: Successful internal transfer commits balances, returns confirmation ID, and publishes FundsTransferredEvent to Kafka AFTER commit - [MEANT TO PASS]")
     void testFinalAC_InternalTransfer_SuccessCommitsAndPublishesEvent() throws Exception {
-        // Requirement Cites: [Story 7.1 - AC2,AC3], [Story 7.2 - AC1,AC2], [Story 7.4 - AC1]
         // NOTE: deliberately NOT @Transactional at the test level - the production code relies on
         // @TransactionalEventListener(phase = AFTER_COMMIT), which never fires if the test itself
         // wraps the call in a transaction that gets rolled back.
@@ -223,10 +195,6 @@ class TransferServiceTestSuite {
         verify(fundsTransferredKafkaTemplate).send(eq("successful-transfers"), any(String.class), any(FundsTransferredEvent.class));
     }
 
-    /* ==========================================================
-       USER STORY 8.1: External Wire Transfer Initiation
-       ========================================================== */
-
     // making sure an obviously malformed iban gets caught before it ever reaches the service layer
     // build a raw json payload with a completely bogus iban string, not even close to the real format
     // post that to the external wire endpoint
@@ -236,7 +204,6 @@ class TransferServiceTestSuite {
     @DisplayName("Block 4: Structurally invalid IBAN/SWIFT rejected before reaching the service - [MEANT TO FAIL]")
     @WithMockUser(username = "42", authorities = {"SCOPE_FULL_AUTH"})
     void testBlock4_ExternalWire_MalformedIban_ReturnsBadRequest() throws Exception {
-        // Requirement Cites: [Story 8.1 - AC2] (jakarta.validation @Pattern on the DTO)
         String payload = """
                 {"iban":"NOT_AN_IBAN","swiftCode":"DEUTDEFF","beneficiaryName":"John Smith","amount":100.00}
                 """;
@@ -257,7 +224,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 5: Structurally valid but checksum-invalid IBAN rejected by IbanSwiftValidator - [MEANT TO FAIL]")
     void testBlock5_ExternalWire_ChecksumInvalidIban_ThrowsBadRequest() {
-        // Requirement Cites: [Story 8.1 - AC2] (ISO 7064 MOD 97-10 validation, not just regex)
         authenticateAsFullAuthUser(42);
 
         var request = new com.example.transactionservice.dto.ExternalWireRequestDto(
@@ -277,7 +243,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 6: Insufficient funds rejects external wire before reserving funds - [MEANT TO FAIL]")
     void testBlock6_ExternalWire_InsufficientFunds_ThrowsBadRequest() {
-        // Requirement Cites: [Story 8.1 - AC3]
         authenticateAsFullAuthUser(42);
         willThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_FUNDS"))
                 .given(accountServiceClient).debit(eq(1L), any());
@@ -290,10 +255,6 @@ class TransferServiceTestSuite {
                 .hasMessageContaining("INSUFFICIENT_FUNDS");
     }
 
-    /* ==========================================================
-       USER STORY 8.2: Fraud Threshold & Pending Approval
-       ========================================================== */
-
     // checking the exact boundary of the fraud review threshold, right at five thousand dollars
     // build a wire request for exactly five thousand dollars, the threshold value itself
     // call initiatewire directly (account-service's debit call succeeds by default - a mocked void
@@ -303,7 +264,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Block 7: Wire at or below $5000 completes immediately without a fraud event - [MEANT TO PASS]")
     void testBlock7_ExternalWire_AtThreshold_CompletesWithoutFraudEvent() {
-        // Requirement Cites: [Story 8.2 - AC1] (threshold is strictly ">" 5000)
         authenticateAsFullAuthUser(42);
 
         var request = new com.example.transactionservice.dto.ExternalWireRequestDto(
@@ -324,7 +284,6 @@ class TransferServiceTestSuite {
     @Test
     @DisplayName("Final Block: Wire over $5000 is pre-reserved, marked PENDING_APPROVAL, and publishes LargeTransferRequestedEvent - [MEANT TO PASS]")
     void testFinalAC_ExternalWire_OverThreshold_PendingApprovalAndFraudEvent() {
-        // Requirement Cites: [Story 8.1 - AC1,AC2,AC3], [Story 8.2 - AC1,AC2,AC3]
         authenticateAsFullAuthUser(42);
 
         var request = new com.example.transactionservice.dto.ExternalWireRequestDto(
@@ -338,10 +297,6 @@ class TransferServiceTestSuite {
         verify(transactionRepository).save(any());
         verify(largeTransferKafkaTemplate).send(eq("large-transfers-review"), eq(response.transactionId().toString()), any(LargeTransferRequestedEvent.class));
     }
-
-    /* ==========================================================
-       CROSS-CUTTING: Auth Boundary Enforcement (mirrors FR5.4 pattern)
-       ========================================================== */
 
     // making sure a pre auth session, meaning 2fa was never finished, cannot move money at all
     // withmockuser only grants scope_pre_auth here instead of the full auth scope other tests use
@@ -373,13 +328,6 @@ class TransferServiceTestSuite {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().is4xxClientError());
     }
-
-    /* ==========================================================
-       USER STORY FR3.1 AC3 (cross-service): KYC Enforcement on Fund Movement
-       (@RequiresKyc is now applied to both TransferService.executeTransfer and
-       ExternalWireService.initiateWire; KycEnforcementAspect blocks either call
-       unless the Profile Service reports the caller's KYC status as APPROVED.)
-       ========================================================== */
 
     // checking that kyc enforcement actually blocks a transfer for a user who is not approved yet
     // override the kyc stub to say pending_verification, call executetransfer directly

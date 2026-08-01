@@ -33,10 +33,6 @@ public class ProfileManagementService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    // ==========================================
-    // FR4.1 & 4.2: User Profile Updates
-    // ==========================================
-    
     // @Transactional here matters more than it looks, if publishing to kafka down in step 4
     // ever threw, the db save from step 3 would get rolled back too since both are in one transaction
     @Transactional
@@ -80,10 +76,6 @@ public class ProfileManagementService {
         kafkaTemplate.send(PROFILE_EVENTS_TOPIC, String.valueOf(userId), event);
     }
 
-    // ==========================================
-    // FR3.2 & 3.3: Automated Webhook Processing
-    // ==========================================
-
     @Transactional
     public void processKycWebhook(Long userId, KycStatus newStatus) {
         UserProfile user = userProfileRepository.findById(userId)
@@ -101,10 +93,6 @@ public class ProfileManagementService {
         KycStatusUpdatedEvent event = new KycStatusUpdatedEvent(userId, oldStatus, newStatus, LocalDateTime.now());
         kafkaTemplate.send(KYC_EVENTS_TOPIC, String.valueOf(userId), event);
     }
-
-    // ==========================================
-    // FR3.4: Manual Admin Overrides
-    // ==========================================
 
     @Transactional
     public void adminOverrideKyc(Long userId, Long adminId, KycStatus newStatus, String reason) {

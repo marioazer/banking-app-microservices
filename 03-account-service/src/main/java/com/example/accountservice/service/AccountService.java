@@ -37,10 +37,6 @@ public class AccountService {
         this.accountMapper = accountMapper;
     }
 
-    /**
-     * Retrieves a consolidated list of active and frozen accounts for the user dashboard.
-     * Fulfills FR5.3 AC4: Automatically filter out any accounts where the status is CLOSED.
-     */
     public List<AccountOverviewResponseDto> getDashboardAccounts(Long userId) {
         // Query the database for accounts, strictly excluding CLOSED ones
         List<AccountEntity> accounts = accountRepository.findByUserIdAndStatusNot(userId, AccountStatus.CLOSED);
@@ -51,21 +47,15 @@ public class AccountService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Retrieves paginated transaction history, enforcing strict ownership checks and dynamic filtering.
-     * Fulfills FR6.3 (Dynamic Filtering) and FR6.4 (Ownership Authorization).[cite: 4]
-     */
     public Page<TransactionEntity> getAccountTransactions(Long userId, Long accountId, TransactionType filterType, Pageable pageable) {
-        
-        // 1. Strict Ownership Authorization Check (FR6.4 AC3)[cite: 4]
+
         verifyAccountOwnership(userId, accountId);
 
-        // 2. Dynamic Repository Routing (FR6.3 AC2)[cite: 4]
         if (filterType != null) {
-            // If the user specified CREDIT or DEBIT, use the highly targeted repository method[cite: 4]
+            // If the user specified CREDIT or DEBIT, use the highly targeted repository method
             return transactionRepository.findByAccountIdAndTransactionType(accountId, filterType, pageable);
         } else {
-            // If no filter is specified, return all transactions for the account[cite: 4]
+            // If no filter is specified, return all transactions for the account
             return transactionRepository.findByAccountId(accountId, pageable);
         }
     }
@@ -75,7 +65,7 @@ public class AccountService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found or invalid ID provided."));
 
         if (!account.getUserId().equals(userId)) {
-            // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden[cite: 4]
+            // Throwing this exception ensures Spring Security intercepts it and returns a 403 Forbidden
             // learned this specific exception type matters, spring security has an exception handler
             // already registered for accessdeniedexception, a plain runtimeexception would have
             // just bubbled up as an unhandled 500 instead of a proper 403

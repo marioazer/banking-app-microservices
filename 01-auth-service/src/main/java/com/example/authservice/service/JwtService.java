@@ -34,9 +34,6 @@ public class JwtService {
     private static final long FULL_AUTH_EXPIRATION = 15 * 60 * 1000; // 15 minutes in milliseconds
     private static final long PRE_AUTH_EXPIRATION = 5 * 60 * 1000;   // 5 minutes in milliseconds
 
-    /**
-     * Generates a token with a specific type (PRE_AUTH or FULL_AUTH).
-     */
     public String generateToken(UserDetails userDetails, TokenType tokenType) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("token_type", tokenType.name()); // Embed the boundary restriction

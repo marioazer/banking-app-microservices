@@ -22,10 +22,6 @@ public class KycEnforcementAspect {
         this.profileServiceClient = profileServiceClient;
     }
 
-    /**
-     * This advice runs before any method annotated with @RequiresKyc.
-     * It completely halts execution if the compliance check fails.
-     */
     // @Before with this pointcut expression means run before any method anywhere in the app
     // carrying @RequiresKyc, learned this is why executeTransfer and initiateWire both got this
     // check for free just by adding the annotation, no code duplicated between the two services
@@ -37,7 +33,6 @@ public class KycEnforcementAspect {
         // 2. Make the synchronous network call to the Profile Service
         String kycStatus = fetchKycStatus(userId);
 
-        // 3. Enforce the strict compliance boundary (FR3.1 AC3)
         if (!"APPROVED".equals(kycStatus)) {
             // Throwing this custom exception instantly aborts the intercepted transaction method.
             // A @RestControllerAdvice class will catch this and translate it into a 403 Forbidden HTTP response.

@@ -17,13 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Internal API for service-to-service calls only (not end-user traffic) - account-service is the
- * sole owner of the "accounts"/"transactions" tables, so any other service that needs to move
- * money or read aggregate balances goes through here instead of touching the tables directly.
- * Mirrors the same "no @PreAuthorize, internal-only" pattern as transaction-service's
- * InternalFraudController.
- */
 @RestController
 public class InternalAccountController {
 
@@ -53,48 +46,30 @@ public class InternalAccountController {
 
     public record UserAggregateBalanceResponse(Long userId, BigDecimal totalBalance) {}
 
-    /**
-     * Called by transaction-service's TransferService for internal (account-to-account) transfers -
-     * replaces what used to be transaction-service's own direct pessimistic-locked DB access.
-     */
     @PostMapping("/api/v1/internal/accounts/transfer")
     public ResponseEntity<Void> transfer(@RequestBody TransferRequest request) {
         internalAccountService.transfer(request.userId(), request.fromAccountId(), request.toAccountId(), request.amount());
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Called by transaction-service's ExternalWireService to pre-reserve funds for an external wire.
-     */
     @PostMapping("/api/v1/internal/accounts/{accountId}/debit")
     public ResponseEntity<Void> debit(@PathVariable Long accountId, @RequestBody DebitRequest request) {
         internalAccountService.debit(request.userId(), accountId, request.amount(), request.description());
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Called by transaction-service's fraud-review reversal path to return funds for a rejected wire.
-     */
     @PostMapping("/api/v1/internal/accounts/{accountId}/credit")
     public ResponseEntity<Void> credit(@PathVariable Long accountId, @RequestBody CreditRequest request) {
         internalAccountService.credit(accountId, request.amount(), request.description());
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Called by notification-service's AccountServiceClient (FR10.2) to fetch aggregate balances
-     * for a batch of users in one network hop instead of one call per user.
-     */
     @PostMapping("/api/v1/accounts/balances/batch")
     public ResponseEntity<List<UserAggregateBalanceResponse>> balancesBatch(@RequestBody List<Long> userIds) {
         return ResponseEntity.ok(internalAccountService.aggregateBalances(userIds));
     }
 }
 
-/**
- * Package-private service backing InternalAccountController - kept in the same file as the
- * controller, mirroring transaction-service's InternalFraudController/FraudResolutionService split.
- */
 @Service
 class InternalAccountService {
 

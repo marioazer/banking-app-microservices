@@ -65,13 +65,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jti = jwtService.extractJti(jwt);
             TokenType tokenType = jwtService.extractTokenType(jwt);
 
-            // 3. Blacklist Check (FR2.4)
             if (isBlacklisted(jti)) {
                 writeErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked. Please log in again.");
                 return; // Short-circuit the request
             }
 
-            // 4. Boundary Enforcement (FR1.4)
             // Use getRequestURI() so MockMvc and Tomcat both match correctly
             String requestPath = request.getRequestURI();
             if (violatesPreAuthBoundary(tokenType, requestPath)) {

@@ -4,9 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * DTO representing the incoming JSON payload for a profile contact info update.
- */
 public class UpdateContactInfoRequestDto {
 
     // Regex strictly validates E.164 international phone number format (e.g., +14155552671)

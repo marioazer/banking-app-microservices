@@ -10,17 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/**
- * Wire-transfer ledger record, keyed by the client-facing confirmation UUID
- * (transaction_id) rather than the shared table's internal bigserial id.
- *
- * NOTE: as of this suite, no Flyway migration in this module actually adds a
- * "transaction_id" UUID column to the shared "transactions" table (only
- * V3__Update_Transactions_Schema.sql, which adds "status"). This entity
- * matches how ExternalWireService/InternalFraudController already use it in
- * code; the schema gap is a real finding for the upcoming database-connections
- * phase, not something papered over here.
- */
 @Entity
 @Table(name = "wire_transactions")
 public class TransactionEntity {

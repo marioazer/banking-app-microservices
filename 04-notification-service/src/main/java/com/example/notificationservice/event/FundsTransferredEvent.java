@@ -5,13 +5,6 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-/**
- * Immutable event record for deserializing Kafka messages from the Transaction Service.
- * Fulfills FR9.2 AC1: Consumes FundsTransferredEvent messages[cite: 4].
- *
- * The Tolerant Reader pattern (@JsonIgnoreProperties) prevents deserialization
- * exceptions if the Transaction Service adds new fields in the future.
- */
 // learned this is its own separate record from transaction-service's FundsTransferredEvent,
 // two different classes in two different services that both just happen to deserialize the
 // exact same kafka json payload, @JsonIgnoreProperties is what keeps that loosely coupled
@@ -28,10 +21,10 @@ public record FundsTransferredEvent(
         // The destination account
         Long toAccountId,
 
-        // The monetary value used to evaluate against the alert_threshold_amount[cite: 4]
+        // The monetary value used to evaluate against the alert_threshold_amount
         BigDecimal amount,
 
-        // The unique ID to format into the clear message receipt[cite: 4]
+        // The unique ID to format into the clear message receipt
         UUID transactionId
 
 ) {}

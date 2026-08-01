@@ -29,9 +29,6 @@ public class TransferController {
         this.externalWireService = externalWireService;
     }
 
-    /**
-     * DTO specifically for internal account-to-account transfers.
-     */
     // learned a record can be declared right inside a controller class like this, keeps a tiny
     // dto that only this one controller cares about from needing its own separate file
     public record InternalTransferRequestDto(
@@ -40,10 +37,6 @@ public class TransferController {
             @NotNull @Positive BigDecimal amount
     ) {}
 
-    /**
-     * FR7: Internal Funds Transfer API.
-     * Executes an atomic transfer and returns a unique confirmation ID in under 500ms[cite: 1].
-     */
     @PostMapping("/internal")
     public ResponseEntity<TransferResponseDto> executeInternalTransfer(
             @RequestBody @Valid InternalTransferRequestDto request) {
@@ -60,10 +53,6 @@ public class TransferController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * FR8.1 AC1: Endpoint POST /api/v1/transfers/external must accept recipient details.
-     * The @Valid annotation enforces strict regex validation on IBAN and SWIFT codes.
-     */
     // mixing @RequestParam and @RequestBody on the same endpoint, learned spring is fine reading
     // fromAccountId off the query string while the rest of the payload comes from the json body
     @PostMapping("/external")
@@ -82,10 +71,6 @@ public class TransferController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Securely extracts the user ID directly from the authenticated JWT session.
-     * Prevents IDOR (Insecure Direct Object Reference) attacks.
-     */
     private Long extractUserIdFromAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {

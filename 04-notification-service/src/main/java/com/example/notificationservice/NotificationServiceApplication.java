@@ -22,10 +22,6 @@ public class NotificationServiceApplication {
 		SpringApplication.run(NotificationServiceApplication.class, args);
 	}
 
-	/**
-	 * Injected system clock so time-dependent beans (e.g. DailyBalanceSummaryJob) can be
-	 * driven by a fixed/controlled Clock in tests instead of the real wall clock.
-	 */
 	@Bean
 	public Clock clock() {
 		return Clock.systemUTC();

@@ -10,9 +10,6 @@ import com.example.accountservice.model.AccountEntity;
 @Component
 public class AccountMapper {
 
-    /**
-     * Converts the database entity into a secure DTO for the frontend dashboard.
-     */
     public AccountOverviewResponseDto toOverviewDto(AccountEntity entity) {
         return new AccountOverviewResponseDto(
                 entity.getId(),
@@ -24,10 +21,6 @@ public class AccountMapper {
         );
     }
 
-    /**
-     * Masks the account number, leaving only the last 4 digits visible.
-     * Fulfills FR5.2 AC2.[cite: 3]
-     */
     private String maskAccountNumber(String rawAccountNumber) {
         if (rawAccountNumber == null) {
             return rawAccountNumber; // Failsafe for unusually short or malformed numbers

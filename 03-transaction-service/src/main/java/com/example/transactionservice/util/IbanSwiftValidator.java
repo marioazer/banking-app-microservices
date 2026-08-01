@@ -4,22 +4,11 @@ import java.math.BigInteger;
 
 import org.springframework.stereotype.Component;
 
-/**
- * Utility service for validating international banking formats.
- * Fulfills FR8.1 AC2: The system must validate the recipient bank details format 
- * (IBAN and SWIFT/BIC standard validation).
- */
 @Component
 public class IbanSwiftValidator {
 
     private static final String SWIFT_REGEX = "^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$";
 
-    /**
-     * Performs ISO 13616 Modulo-97 mathematical validation on an IBAN.
-     * 
-     * @param iban The raw IBAN string
-     * @return true if mathematically valid, false otherwise
-     */
     public boolean isValidIban(String iban) {
         if (iban == null) {
             return false;
@@ -63,12 +52,6 @@ public class IbanSwiftValidator {
         }
     }
 
-    /**
-     * Validates a SWIFT/BIC code based on standard structural length and character constraints.
-     * 
-     * @param swiftCode The raw SWIFT/BIC string
-     * @return true if structurally valid, false otherwise
-     */
     public boolean isValidSwift(String swiftCode) {
         if (swiftCode == null) {
             return false;

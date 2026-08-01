@@ -42,9 +42,6 @@ public class ExternalWireService {
         this.kafkaTemplate = kafkaTemplate; // Injected to publish high-value transfer events
     }
 
-    /**
-     * Processes an external wire transfer, applying format validation and fraud thresholds.
-     */
     @Transactional
     @RequiresKyc
     public TransferResponseDto initiateWire(Long userId, Long fromAccountId, ExternalWireRequestDto request) {
@@ -57,14 +54,14 @@ public class ExternalWireService {
         accountServiceClient.debit(fromAccountId, new AccountServiceClient.DebitRequest(
                 userId, request.amount(), "External Wire to " + request.beneficiaryName()));
 
-        // 5. Threshold Check Logic[cite: 2]
+        // 5. Threshold Check Logic
         TransactionStatus finalStatus = determineTransactionStatus(request.amount());
 
         // 6. Record the transaction state
         UUID transactionId = UUID.randomUUID();
         recordTransaction(transactionId, fromAccountId, request, finalStatus);
 
-        // 7. Publish to Kafka if flagged for Fraud Review[cite: 2]
+        // 7. Publish to Kafka if flagged for Fraud Review
         publishFraudReviewIfNeeded(transactionId, fromAccountId, request, finalStatus);
 
         // 8. Return the UUID and the resulting status (either COMPLETED or PENDING_APPROVAL)
@@ -72,7 +69,7 @@ public class ExternalWireService {
     }
 
     private void validateFormat(ExternalWireRequestDto request) {
-        // Strict Formatting Validation[cite: 2]
+        // Strict Formatting Validation
         if (!validator.isValidIban(request.iban())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid IBAN or SWIFT code format.");
         }
@@ -85,7 +82,7 @@ public class ExternalWireService {
     // so exactly 5000.00 itself does not trigger review, only amounts that go over it
     private TransactionStatus determineTransactionStatus(BigDecimal amount) {
         if (amount.compareTo(FRAUD_THRESHOLD) > 0) {
-            return TransactionStatus.PENDING_APPROVAL; // Requires manual or automated review[cite: 2]
+            return TransactionStatus.PENDING_APPROVAL; // Requires manual or automated review
         }
         return TransactionStatus.COMPLETED;
     }
@@ -112,7 +109,7 @@ public class ExternalWireService {
                 request.swiftCode(),
                 request.beneficiaryName()
         );
-        // Fire the event to the Fraud Detection Service[cite: 2]
+        // Fire the event to the Fraud Detection Service
         kafkaTemplate.send(FRAUD_TOPIC, transactionId.toString(), event);
     }
 }

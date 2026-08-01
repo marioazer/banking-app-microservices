@@ -17,10 +17,6 @@ import com.example.notificationservice.client.AccountServiceClient;
 import com.example.notificationservice.client.ProfileServiceClient;
 import com.example.notificationservice.service.NotificationProviderService;
 
-/**
- * Scheduled job for aggregating and dispatching daily balance summaries.
- * Fulfills FR10.2 and FR10.3[cite: 5].
- */
 @Component
 public class DailyBalanceSummaryJob {
 
@@ -43,10 +39,6 @@ public class DailyBalanceSummaryJob {
         this.clock = clock;
     }
 
-    /**
-     * Executes at the top of every hour (e.g., 1:00, 2:00, 3:00).
-     * Fulfills FR10.2 AC1 & Tech Task: Timezone-aware job execution[cite: 5].
-     */
     @Scheduled(cron = "0 0 * * * *")
     public void processDailySummaries() {
         log.info("Starting hourly sweep for 8:00 AM Daily Balance Summaries.");
@@ -66,8 +58,7 @@ public class DailyBalanceSummaryJob {
             try {
                 processUsersForTimezone(timezone);
             } catch (Exception e) {
-                // Fulfills FR10.3 Tech Task: Implement error handling for unavailability[cite: 5].
-                // We catch exceptions per-timezone so a failure in one region 
+                // We catch exceptions per-timezone so a failure in one region
                 // doesn't block processing for the rest of the world.
                 log.error("Failed to process daily summaries for timezone: {}", timezone, e);
             }
@@ -87,7 +78,7 @@ public class DailyBalanceSummaryJob {
     }
 
     private void processUsersForTimezone(String timezone) {
-        // 3. Fetch users who opted in and belong to this timezone[cite: 5]
+        // 3. Fetch users who opted in and belong to this timezone
         List<ProfileServiceClient.UserPreferenceResponse> users =
                 profileServiceClient.getUsersForDailySummary(timezone);
 
@@ -104,10 +95,10 @@ public class DailyBalanceSummaryJob {
 
         log.info("Found {} opted-in users for timezone {}. Fetching bulk balances.", userIds.size(), timezone);
 
-        // 4. Perform the single batch network call to avoid N+1 query problems[cite: 5]
+        // 4. Perform the single batch network call to avoid N+1 query problems
         Map<Long, AccountServiceClient.UserAggregateBalanceResponse> balanceMap = fetchBalanceMap(userIds);
 
-        // 5. In-Memory Join & Dispatch[cite: 5]
+        // 5. In-Memory Join & Dispatch
         dispatchSummaries(users, balanceMap);
     }
 
@@ -140,10 +131,6 @@ public class DailyBalanceSummaryJob {
         }
     }
 
-    /**
-     * Constructs a professionally formatted HTML email.
-     * Fulfills FR10.3 AC2[cite: 5].
-     */
     private String buildHtmlSummary(AccountServiceClient.UserAggregateBalanceResponse balanceData) {
         return """
                <html>

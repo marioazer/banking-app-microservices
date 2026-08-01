@@ -19,10 +19,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     // alone, no @Query needed for this one since it is a simple single field lookup
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
-    /**
-     * A powerful custom JPQL query to instantly revoke all active tokens for a given user.
-     * Useful for password resets or "Sign out of all other sessions" functionality.
-     */
     // jpql looks like sql but it references the java entity and field names (RefreshToken,
     // r.userId) instead of the actual table/column names, hibernate translates it underneath
     @Modifying

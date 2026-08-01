@@ -10,12 +10,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/**
- * Real password/user-lookup wiring for Spring Security - kept separate from SecurityConfig so
- * SecurityConfig can keep constructor-injecting AuthenticationProvider without a circular
- * self-reference (a @Bean method for a type also requested via that same class's constructor
- * would require the class to construct itself).
- */
 @Configuration
 public class ApplicationConfig {
 

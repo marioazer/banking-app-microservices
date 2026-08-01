@@ -7,11 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-/**
- * Consumes ProfileUpdatedEvents to notify users of security changes.
- * This service operates in an independent Consumer Group, ensuring
- * it processes events regardless of Audit Service performance.
- */
 @Service
 public class ProfileNotificationListener {
 
@@ -33,7 +28,6 @@ public class ProfileNotificationListener {
             Long userId = Long.valueOf(eventPayload.get("userId").toString());
             String eventType = (String) eventPayload.get("eventType");
 
-            // Logic: Send the security alert email/SMS (FR4.4)
             sendSecurityAlertEmail(userId, eventType);
 
             logger.info("Notification Service: Security alert sent for User ID: {}", userId);

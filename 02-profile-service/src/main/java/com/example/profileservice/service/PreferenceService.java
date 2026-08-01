@@ -28,13 +28,6 @@ public class PreferenceService {
         this.preferenceRepository = preferenceRepository;
     }
 
-    /**
-     * Updates only the user's alert threshold, leaving any existing daily-summary settings
-     * untouched. Fulfills FR9.1 AC1/AC2, independent of FR10.1.
-     *
-     * @CacheEvict instantly removes the entry associated with this userId from Redis.
-     * This guarantees the Notification Service will fetch the updated threshold on its next read[cite: 4].
-     */
     // the #userId inside key = is spring expression language reaching into the method's own
     // parameter by name, this is how it knows exactly which redis cache entry to evict
     @Transactional
@@ -45,16 +38,10 @@ public class PreferenceService {
         preferenceRepository.save(entity);
     }
 
-    /**
-     * Updates only the user's daily-summary opt-in and timezone, leaving any existing alert
-     * threshold untouched. Fulfills FR10.1 AC1/AC2/AC3, independent of FR9.1.
-     *
-     * @CacheEvict instantly removes the entry associated with this userId from Redis.
-     */
     @Transactional
     @CacheEvict(value = "user-preferences", key = "#userId")
     public void updateDailySummarySettings(Long userId, Boolean dailySummaryEnabled, String timezone) {
-        // Strict Domain Validation: Ensure the timezone is a valid IANA identifier[cite: 5].
+        // Strict Domain Validation: Ensure the timezone is a valid IANA identifier.
         try {
             ZoneId.of(timezone);
         } catch (Exception e) {
@@ -73,20 +60,11 @@ public class PreferenceService {
         return preferenceRepository.findByUserId(userId).orElseGet(() -> buildDefault(userId));
     }
 
-    /**
-     * Read-only lookup backing GET /api/v1/profile/alerts/{userId}, called by notification-service
-     * (FR9.2 AC2) to evaluate a real-time transaction alert. Unlike findOrCreateDefault, a user
-     * with no row yet is never persisted just because someone read their (default) preferences.
-     */
     @Transactional(readOnly = true)
     public UserPreferenceEntity getPreferences(Long userId) {
         return preferenceRepository.findByUserId(userId).orElseGet(() -> buildDefault(userId));
     }
 
-    /**
-     * Fulfills FR10.2 AC2: users opted into the daily summary for a given timezone, read by
-     * notification-service's scheduled batch job.
-     */
     @Transactional(readOnly = true)
     public List<UserPreferenceEntity> getUsersForDailySummary(String timezone) {
         return preferenceRepository.findByDailySummaryEnabledTrueAndTimezone(timezone);

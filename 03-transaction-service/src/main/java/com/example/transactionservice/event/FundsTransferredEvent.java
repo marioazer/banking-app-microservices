@@ -3,14 +3,6 @@ package com.example.transactionservice.event;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-/**
- * Immutable event record published to Kafka after a successful internal transfer.
- * Fulfills FR7.4 AC2: The event must contain fromAccountId, toAccountId, amount, and transactionId[cite: 3].
- *
- * Carries userId (the authenticated owner of both accounts, per TransferService's ownership
- * check) alongside the account IDs so downstream consumers - like Notification Service's
- * alert-threshold lookup - don't have to mistake an account ID for a user ID.
- */
 // records make sense for events specifically, an event describes something that already happened
 // and should never be mutated after the fact, records being immutable fits that naturally
 public record FundsTransferredEvent(

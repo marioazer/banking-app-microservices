@@ -30,17 +30,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-/**
- * FR9 (Real-time Transaction Alerts) & FR10 (Daily Balance Summaries) acceptance tests.
- * Mirrors the Block/Final-Block pattern from AuthManagementTestSuite/ProfileServiceTestSuite.
- *
- * Kafka is NOT excluded here (unlike other services' suites): TransactionAlertListener and
- * ProfileNotificationListener are real @KafkaListener beans, and this module's existing
- * NotificationServiceApplicationTests already proved the context starts cleanly with the
- * default (unreachable localhost broker) config - consumer containers just retry connecting
- * in the background without blocking startup or these tests, which invoke the listener
- * methods directly rather than round-tripping through a real broker.
- */
 @SpringBootTest
 class NotificationAlertsTestSuite {
 
@@ -76,10 +65,6 @@ class NotificationAlertsTestSuite {
         given(clock.instant()).willReturn(EIGHT_AM_NEW_YORK);
     }
 
-    /* ==========================================================
-       USER STORY 9.2: Kafka Consumer for Transaction Events
-       ========================================================== */
-
     // checking that a transfer at or above the user's alert threshold actually triggers an email
     // build a fundstransferredevent, using userId 42 but deliberately different account ids, 501 and 502,
     // so this test cannot pass by accident if the listener code regresses to reading an account id instead
@@ -90,7 +75,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 1: Transaction at/above the user's threshold dispatches an alert - [MEANT TO PASS]")
     void testBlock1_transferAtOrAboveThreshold_dispatchesAlert() {
-        // Requirement Cites: [Story 9.2 - AC2, AC3]
         // userId (42L) is deliberately distinct from fromAccountId/toAccountId (501L/502L) so this
         // test cannot pass by accident if the listener regresses to using an account ID again.
         FundsTransferredEvent event = new FundsTransferredEvent(42L, 501L, 502L, new BigDecimal("150.00"), UUID.randomUUID());
@@ -110,7 +94,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 2: Transaction below the user's threshold does not dispatch an alert - [MEANT TO PASS]")
     void testBlock2_transferBelowThreshold_noAlert() {
-        // Requirement Cites: [Story 9.2 - AC3] (evaluate against threshold before dispatching)
         FundsTransferredEvent event = new FundsTransferredEvent(42L, 501L, 502L, new BigDecimal("50.00"), UUID.randomUUID());
         given(profileServiceClient.getUserPreferences(42L))
                 .willReturn(new UserPreferenceResponse(42L, new BigDecimal("100.00"), true, "America/New_York"));
@@ -127,7 +110,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 3: Missing preferences skips the alert without throwing - [MEANT TO PASS]")
     void testBlock3_missingPreferences_skipsAlertGracefully() {
-        // Requirement Cites: [Story 9.2] (defensive handling, no preferences record found)
         FundsTransferredEvent event = new FundsTransferredEvent(42L, 501L, 502L, new BigDecimal("500.00"), UUID.randomUUID());
         given(profileServiceClient.getUserPreferences(42L)).willReturn(null);
 
@@ -144,7 +126,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 4: Profile Service failure is swallowed so the Kafka consumer thread survives - [MEANT TO PASS]")
     void testBlock4_profileServiceFailure_doesNotCrashListener() {
-        // Requirement Cites: [Story 9.2] (a single bad event/downstream outage must not kill the consumer loop)
         FundsTransferredEvent event = new FundsTransferredEvent(42L, 501L, 502L, new BigDecimal("500.00"), UUID.randomUUID());
         given(profileServiceClient.getUserPreferences(42L)).willThrow(new RuntimeException("Profile Service unavailable"));
 
@@ -152,13 +133,6 @@ class NotificationAlertsTestSuite {
 
         verify(notificationProviderService, never()).dispatchEmail(any(), any(), any());
     }
-
-    /* ==========================================================
-       USER STORY 9.2 (fixed): userId vs. account ID resolution
-       (FundsTransferredEvent now carries an explicit userId field, populated by
-       TransferService from its own ownership check, so TransactionAlertListener no longer
-       has to guess. This replaces the old test that documented the conflation as a gap.)
-       ========================================================== */
 
     // regression test making sure the listener uses the real userId field, not one of the account ids
     // build an event with userId 777 and two very different looking account ids, 111 and 222
@@ -186,10 +160,6 @@ class NotificationAlertsTestSuite {
     // @MockBeans NotificationProviderService to verify its callers, which would conflict with
     // exercising the real AOP-proxied bean's retry logic in the same Spring context.
 
-    /* ==========================================================
-       USER STORY 10.2: Scheduled Job for Balance Aggregation
-       ========================================================== */
-
     // checking the scheduled daily summary job actually emails users who are opted in and have a balance
     // thanks to the clock stub in setUpClock this always looks like 8am in america/new_york,
     // so we know exactly which timezone string the job is going to query for, no guessing needed
@@ -200,7 +170,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 7: Opted-in users with a matching balance receive a summary email - [MEANT TO PASS]")
     void testBlock7_optedInUsersWithBalance_receiveSummaryEmail() {
-        // Requirement Cites: [Story 10.2 - AC2, AC3]
         // DailyBalanceSummaryJob now reads Instant.now(clock) instead of the real wall clock, so
         // with the fixed 8 AM America/New_York instant stubbed in @BeforeEach, exactly which
         // timezone string the job queries is deterministic - this stubs and verifies that one
@@ -225,7 +194,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 8: No opted-in users means no downstream balance lookup or email - [MEANT TO PASS]")
     void testBlock8_noOptedInUsers_noDownstreamCalls() {
-        // Requirement Cites: [Story 10.2 - AC2] (empty result set short-circuits)
         given(profileServiceClient.getUsersForDailySummary(anyString())).willReturn(List.of());
 
         dailyBalanceSummaryJob.processDailySummaries();
@@ -242,7 +210,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Block 9: A user with no matching balance entry is skipped, not errored - [MEANT TO PASS]")
     void testBlock9_userWithoutMatchingBalance_isSkipped() {
-        // Requirement Cites: [Story 10.2] (in-memory join must not fail on a partial result set)
         given(profileServiceClient.getUsersForDailySummary(anyString()))
                 .willReturn(List.of(new UserPreferenceResponse(200L, new BigDecimal("100.00"), true, "any")));
         given(accountServiceClient.getAggregateBalancesBatch(eq(List.of(200L))))
@@ -253,10 +220,6 @@ class NotificationAlertsTestSuite {
         verify(notificationProviderService, never()).dispatchEmail(any(), any(), any());
     }
 
-    /* ==========================================================
-       USER STORY 10.3: Error Isolation Per Timezone
-       ========================================================== */
-
     // making sure one timezone's outage cannot take down the entire daily summary sweep for every region
     // stub the profile service so looking up users for any timezone string just throws
     // call processdailysummaries and expect it to not throw anything back out to the scheduler
@@ -265,8 +228,6 @@ class NotificationAlertsTestSuite {
     @Test
     @DisplayName("Final Block: A failure looking up one timezone's users does not abort the sweep - [MEANT TO PASS]")
     void testFinalAC_timezoneFailure_isolatedAndDoesNotPropagate() {
-        // Requirement Cites: [Story 10.3] (per-timezone try/catch so one region's outage
-        // doesn't block the rest of the world's daily summaries)
         given(profileServiceClient.getUsersForDailySummary(anyString()))
                 .willThrow(new RuntimeException("Profile Service unavailable"));
 

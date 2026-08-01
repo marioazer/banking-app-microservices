@@ -32,7 +32,7 @@ public class TransactionEntity {
     @Column(name = "transaction_type", nullable = false)
     private TransactionType transactionType;
 
-    // BigDecimal with precision mapping[cite: 4]
+    // BigDecimal with precision mapping
     // learned money should basically never be a double in java, floating point rounding errors
     // are unacceptable for real currency math, bigdecimal keeps every cent exact
     @Column(nullable = false, precision = 19, scale = 4)

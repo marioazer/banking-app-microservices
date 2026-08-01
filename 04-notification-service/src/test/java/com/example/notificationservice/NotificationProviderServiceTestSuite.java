@@ -15,18 +15,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-/**
- * FR9.3 / FR10.3: NotificationProviderService's @Retryable/@Recover behavior.
- *
- * A separate suite from NotificationAlertsTestSuite on purpose: that suite @MockBeans
- * NotificationProviderService itself (to verify TransactionAlertListener/DailyBalanceSummaryJob
- * call it correctly), which replaces the real AOP-proxied bean for the whole test class. This
- * suite needs the real bean - with @EnableRetry actually wired up - so it mocks one level
- * lower, at EmailProviderClient, which is now the seam @Retryable/@Recover can actually see
- * fail. Previously the "failure" was a hardcoded `boolean simulateNetworkFailure = false` with
- * no way to flip it from outside the class, so this behavior was unreachable through any real
- * code path.
- */
 @SpringBootTest
 class NotificationProviderServiceTestSuite {
 
@@ -57,7 +45,6 @@ class NotificationProviderServiceTestSuite {
     @Test
     @DisplayName("Final Block: Provider failing every attempt is retried 3 times then recovers without propagating - [MEANT TO PASS]")
     void testFinalAC_persistentProviderFailure_retriesThenRecovers() {
-        // Requirement Cites: [Story 9.3 - AC2 Tech Task], [Story 10.3 Tech Task]
         doThrow(new RuntimeException("503 Service Unavailable: SendGrid API Gateway timeout"))
                 .when(emailProviderClient).send(anyString(), anyString(), anyString());
 

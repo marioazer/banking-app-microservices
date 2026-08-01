@@ -25,10 +25,6 @@ public class ProfileAuditListener {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Consumes messages from the profile-events topic.
-     * Uses a specific groupId to ensure it gets a copy of the message independently of other services.
-     */
     // this is the exact same topic notification-service's ProfileNotificationListener also
     // consumes, just with a different groupId, confirms two totally different services can
     // each get their own full copy of every message on the same kafka topic
@@ -50,7 +46,6 @@ public class ProfileAuditListener {
     }
 
     private AuditLogEntity toAuditRecord(Map<String, Object> eventPayload) throws JsonProcessingException {
-        // 1. Parse the incoming Kafka JSON payload (FR4.3 AC2)
         Long userId = Long.valueOf(eventPayload.get("userId").toString());
         String eventType = (String) eventPayload.get("eventType");
 
@@ -65,7 +60,6 @@ public class ProfileAuditListener {
         Object changesObj = eventPayload.get("changes");
         String changesJson = objectMapper.writeValueAsString(changesObj);
 
-        // 3. Map to the Entity (FR4.3 AC3)
         return new AuditLogEntity(
                 LocalDateTime.now(),
                 userId,

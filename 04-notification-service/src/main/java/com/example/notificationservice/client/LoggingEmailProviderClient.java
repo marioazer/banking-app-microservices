@@ -4,10 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Placeholder EmailProviderClient until a real vendor (SendGrid, AWS SES, etc.) is wired in.
- * Logs instead of actually sending, and never fails on its own.
- */
 // since this is the only @component implementing EmailProviderClient right now, spring
 // autowires it in everywhere that interface gets injected, swapping to a real sendgrid/ses
 // implementation later would just mean adding a second @component and disabling this one

@@ -11,12 +11,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.util.Map;
 
-/**
- * Translates a Feign call's HTTP error response (e.g. account-service rejecting a transfer with
- * 400 "INSUFFICIENT_FUNDS") back into a ResponseStatusException carrying the same status and
- * message, so this service's own callers/tests can keep matching on those messages exactly as
- * if the check had run locally, instead of dealing with a generic FeignException.
- */
 @Configuration
 public class FeignErrorConfig {
 

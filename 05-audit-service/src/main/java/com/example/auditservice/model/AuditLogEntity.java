@@ -9,10 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/**
- * Immutable entity representing a change in a user's profile.
- * Fulfills FR4.3 AC4: No updates or deletes are permitted on this table.
- */
 @Entity
 @Table(name = "profile_audit_logs")
 public class AuditLogEntity {

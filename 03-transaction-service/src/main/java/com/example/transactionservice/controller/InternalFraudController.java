@@ -16,10 +16,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
-/**
- * Internal API Controller for machine-to-machine communication.
- * Fulfills FR8.3: Manual Fraud Review Webhook[cite: 2].
- */
 // no @PreAuthorize on this one unlike the customer facing controllers, learned this is meant
 // to only ever be reachable from inside the cluster network, not directly from an end user
 @RestController
@@ -32,10 +28,6 @@ public class InternalFraudController {
         this.fraudResolutionService = fraudResolutionService;
     }
 
-    /**
-     * Data Transfer Object for the Fraud Service webhook payload.
-     * Fulfills FR8.3 AC2: Accepts status (APPROVED/REJECTED) and reviewer_notes[cite: 2].
-     */
     public record FraudReviewUpdateDto(
             @NotBlank(message = "Status is required")
             @Pattern(regexp = "^(APPROVED|REJECTED)$", message = "Status must be APPROVED or REJECTED")
@@ -44,10 +36,6 @@ public class InternalFraudController {
             String reviewerNotes
     ) {}
 
-    /**
-     * Endpoint utilized by the Fraud Detection Service to finalize pending wires.
-     * Fulfills FR8.3 AC1: Exposes PATCH /api/v1/internal/transfers/{transactionId}/fraud-status[cite: 2].
-     */
     @PatchMapping("/{transactionId}/fraud-status")
     public ResponseEntity<String> updateFraudStatus(
             @PathVariable UUID transactionId,
@@ -59,9 +47,6 @@ public class InternalFraudController {
     }
 }
 
-/**
- * Service handling the finalization or atomic reversal of pending wires.
- */
 // learned a top level class does not have to be public, and a file can hold more than one
 // top level class as long as only one of them (the one matching the filename) is public,
 // this service is only ever used by the controller right above it so package private is enough
@@ -77,9 +62,6 @@ class FraudResolutionService {
         this.accountServiceClient = accountServiceClient;
     }
 
-    /**
-     * Fulfills FR8.3 AC3: Finalizes the wire if APPROVED, or cancels and releases funds if REJECTED[cite: 2].
-     */
     @Transactional
     public void resolvePendingTransfer(UUID transactionId, InternalFraudController.FraudReviewUpdateDto payload) {
 
@@ -98,14 +80,14 @@ class FraudResolutionService {
     }
 
     private void finalizeTransaction(TransactionEntity transaction, String reviewerNotes) {
-        // Funds were already deducted during initiation, so we simply finalize the status[cite: 2].
+        // Funds were already deducted during initiation, so we simply finalize the status.
         transaction.setStatus(TransactionStatus.COMPLETED);
         transaction.setDescription(transaction.getDescription() + " [Fraud Review: APPROVED. Notes: " + reviewerNotes + "]");
         transactionRepository.save(transaction);
     }
 
     private void reverseTransaction(TransactionEntity transaction, String reviewerNotes) {
-        // Atomic Reversal Logic: Return the reserved funds to the user[cite: 2].
+        // Atomic Reversal Logic: Return the reserved funds to the user.
         transaction.setStatus(TransactionStatus.REJECTED);
         transaction.setDescription(transaction.getDescription() + " [Fraud Review: REJECTED. Notes: " + reviewerNotes + "]");
 

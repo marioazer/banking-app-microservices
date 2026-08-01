@@ -8,10 +8,6 @@ import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
-/**
- * Service handling dispatch to external notification providers (e.g., SendGrid, AWS SNS).
- * Fulfills FR9.3 AC2 & Tech Task: Implement retry logic using exponential backoff[cite: 4].
- */
 @Service
 public class NotificationProviderService {
 
@@ -23,17 +19,6 @@ public class NotificationProviderService {
         this.emailProviderClient = emailProviderClient;
     }
 
-    /**
-     * Dispatches the formatted message to the external provider.
-     * Fulfills FR9.3 AC2: Sent via external provider (e.g., SendGrid for Email)[cite: 4].
-     *
-     * @Retryable acts as an interceptor. If emailProviderClient.send() throws:
-     * - Attempt 1: Fails
-     * - Wait 1000ms
-     * - Attempt 2: Fails
-     * - Wait 2000ms (1000 * multiplier of 2)
-     * - Attempt 3: Fails, delegates to @Recover
-     */
     // learned @retryable needs @enablescheduling's cousin @enableretry turned on somewhere in the
     // app, otherwise this annotation just sits here doing nothing and a failure throws immediately
     @Retryable(
@@ -46,19 +31,13 @@ public class NotificationProviderService {
         emailProviderClient.send(userEmail, subject, htmlContent);
     }
 
-    /**
-     * The Fallback mechanism. 
-     * If the external provider is completely unreachable after all retries are exhausted, 
-     * Spring routes the flow here instead of crashing the application.
-     * Fulfills FR10.3 Tech Task: Implement error handling when Notification Provider is unavailable[cite: 5].
-     */
     // learned @recover has a strict signature rule, the first parameter has to be the same
     // exception type @retryable is watching for, and the rest of the parameters have to match
     // the original method's parameters in order, spring uses that shape to match them up
     @Recover
     public void recoverDispatchFailure(RuntimeException e, String userEmail, String subject, String htmlContent) {
         // In a production system, this would write the failed payload to a Dead Letter Queue (DLQ)
-        // or a failed_notifications database table for a cron job to retry tomorrow[cite: 5].
+        // or a failed_notifications database table for a cron job to retry tomorrow.
         log.error("CRITICAL FAILURE: Exhausted all retries for email to [{}]. Reason: {}", userEmail, e.getMessage());
         log.error("Payload saved to Dead Letter Queue for manual review.");
     }

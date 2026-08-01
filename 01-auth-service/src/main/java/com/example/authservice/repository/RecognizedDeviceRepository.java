@@ -10,11 +10,6 @@ import com.example.authservice.model.RecognizedDevice;
 @Repository
 public interface RecognizedDeviceRepository extends JpaRepository<RecognizedDevice, Long> {
 
-    /**
-     * Spring Data JPA "Magic Method".
-     * Hibernate will automatically parse the method name and generate the following SQL:
-     * SELECT * FROM recognized_devices WHERE user_id = ? AND device_hash = ?
-     */
     // learned the "And" in the middle of the method name is what tells spring data to combine
     // both fields with an and in the where clause, could swap it for "Or" and get very different sql
     Optional<RecognizedDevice> findByUserIdAndDeviceHash(Long userId, String deviceHash);

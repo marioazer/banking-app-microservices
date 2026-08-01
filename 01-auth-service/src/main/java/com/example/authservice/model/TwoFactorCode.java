@@ -44,7 +44,6 @@ public class TwoFactorCode {
         this.codeHash = codeHash;
         this.attempts = 0;
         this.createdAt = LocalDateTime.now();
-        // Strict 5-minute expiration per FR1.3 AC2
         this.expiresAt = LocalDateTime.now().plusMinutes(5);
     }
 
@@ -52,16 +51,10 @@ public class TwoFactorCode {
 
     // this kind of method living right on the entity is sometimes called a rich domain model,
     // the expiry logic lives with the data it operates on instead of being scattered into a service
-    /**
-     * Checks if the 5-minute window has passed.
-     */
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(this.expiresAt);
     }
 
-    /**
-     * Safely increments the failed attempt counter.
-     */
     public void incrementAttempts() {
         this.attempts++;
     }

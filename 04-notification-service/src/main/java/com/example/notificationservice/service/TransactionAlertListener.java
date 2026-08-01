@@ -24,16 +24,12 @@ public class TransactionAlertListener {
         this.notificationProviderService = notificationProviderService;
     }
 
-    /**
-     * Listens to the Kafka broker for successful transfer events.
-     * Fulfills FR9.2 AC1 & Tech Task: Implement @KafkaListener[cite: 4].
-     */
     @KafkaListener(topics = "successful-transfers", groupId = "notification-service-group")
     public void consumeTransferEvent(FundsTransferredEvent event) {
         log.debug("Received transfer event for Transaction ID: {}", event.transactionId());
 
         try {
-            // 1. Perform sub-millisecond lookup via Cached Feign Client[cite: 4]
+            // 1. Perform sub-millisecond lookup via Cached Feign Client
             ProfileServiceClient.UserPreferenceResponse preferences =
                     profileServiceClient.getUserPreferences(event.userId());
 
@@ -58,7 +54,7 @@ public class TransactionAlertListener {
             log.info("Transaction {} (Amount: ${}) exceeded threshold (${}). Dispatching alert.",
                     event.transactionId(), event.amount(), preferences.alertThresholdAmount());
 
-            // Format the alert message[cite: 4]
+            // Format the alert message
             String subject = "Bank Alert: Large Debit Transaction";
             String htmlMessage = buildHtmlMessage(event);
 
@@ -66,7 +62,7 @@ public class TransactionAlertListener {
             // We use a generated placeholder for the dispatch signature contract.
             String userEmail = "user_" + event.userId() + "@bank.com";
 
-            // Delegate to the provider service (which handles its own external retries)[cite: 4]
+            // Delegate to the provider service (which handles its own external retries)
             notificationProviderService.dispatchEmail(userEmail, subject, htmlMessage);
 
         } else {
@@ -75,10 +71,6 @@ public class TransactionAlertListener {
         }
     }
 
-    /**
-     * Formats a clear message including the transactionId, amount, and date.
-     * Fulfills FR9.3 AC1[cite: 4].
-     */
     // learned java text blocks (triple quoted strings) let multi line html sit here without
     // escaping every single quote or concatenating a bunch of separate strings together
     private String buildHtmlMessage(FundsTransferredEvent event) {

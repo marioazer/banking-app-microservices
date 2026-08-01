@@ -68,9 +68,6 @@ public class KycWebhookFilter extends OncePerRequestFilter {
         filterChain.doFilter(wrappedRequest, response);
     }
 
-    /**
-     * Returns null if the vendor's signature is valid, or the specific rejection message otherwise.
-     */
     private String verifySignature(CachedBodyHttpServletRequest wrappedRequest) {
         // 3. Extract the signature provided by the vendor
         String vendorSignature = wrappedRequest.getHeader(SIGNATURE_HEADER);
@@ -104,9 +101,6 @@ public class KycWebhookFilter extends OncePerRequestFilter {
         }
     }
 
-    /**
-     * Prevents Timing Attacks by checking every single byte, even if a mismatch is found early.
-     */
     // learned a normal string.equals() bails out on the very first mismatched character, which
     // means the response time subtly leaks how many characters matched, messagedigest.isequal
     // always compares every byte no matter what so an attacker cannot time their way to the secret

@@ -101,10 +101,6 @@ class ProfileServiceTestSuite {
         mockUser.setKycStatus(KycStatus.PENDING_VERIFICATION);
     }
 
-    /* ==========================================================
-       USER STORY 3.1: Initial "Pending" State Enforcement
-       ========================================================== */
-
     // checking what happens when someone asks for the kyc status of a user id that does not exist
     // stub the repository so looking up id 999 comes back completely empty
     // hit the kyc-status endpoint for that same missing id
@@ -131,10 +127,6 @@ class ProfileServiceTestSuite {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING_VERIFICATION"));
     }
-
-    /* ==========================================================
-       USER STORY 3.2: Async Webhook for KYC Approval
-       ========================================================== */
 
     // making sure the kyc webhook refuses a request with no signature header at all
     // build a normal looking webhook payload for a user being approved
@@ -195,10 +187,6 @@ class ProfileServiceTestSuite {
         verify(userProfileRepository).save(mockUser);
     }
 
-    /* ==========================================================
-       USER STORY 3.3: Broadcasting the Status Change (Kafka)
-       ========================================================== */
-
     // checking that re-processing the same status does not spam out a duplicate kafka event
     // set the fixture user's kyc status to approved already, like the webhook already ran once before
     // call processkycwebhook again with that exact same approved status
@@ -229,10 +217,6 @@ class ProfileServiceTestSuite {
         verify(userProfileRepository).save(mockUser);
         verify(kafkaTemplate).send(eq("kyc-events"), eq("100"), any(KycStatusUpdatedEvent.class));
     }
-
-    /* ==========================================================
-       USER STORY 3.4: Manual Admin Override
-       ========================================================== */
 
     // making sure a compliance officer cannot manually override kyc status without giving a real reason
     // withmockuser here simulates a logged in compliance officer, user id 500 with the right role
@@ -277,10 +261,6 @@ class ProfileServiceTestSuite {
         verify(userProfileRepository).save(mockUser);
         verify(kafkaTemplate).send(eq("kyc-events"), eq("100"), any(KycStatusUpdatedEvent.class));
     }
-
-    /* ==========================================================
-       USER STORY 4.1: Secure Profile Update API
-       ========================================================== */
 
     // checking validation on the contact info update endpoint rejects a bad phone number format
     // withmockuser simulates the logged in owner of profile 100 making this request themselves
@@ -335,10 +315,6 @@ class ProfileServiceTestSuite {
         verify(userProfileRepository).save(mockUser);
     }
 
-    /* ==========================================================
-       USER STORY 4.2: Broadcasting the Profile Update Event
-       ========================================================== */
-
     // this one calls the service layer directly instead of going through mockmvc
     // stub the repository so user 100 resolves to the fixture profile
     // build a contact info dto with new values and call updatecontactinfo on the service
@@ -361,10 +337,6 @@ class ProfileServiceTestSuite {
         verify(kafkaTemplate).send(eq("profile-events"), eq("100"), any(ProfileUpdatedEvent.class));
     }
 
-    /* ==========================================================
-       USER STORY 9.1: User Preference Management (Alert Threshold)
-       ========================================================== */
-
     // checking the basic happy path for setting an alert threshold for the first time
     // withmockuser here includes the scope_full_auth authority since this endpoint requires a full session
     // stub the preference repository so this user has no existing preference row yet
@@ -374,7 +346,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block: Update alert threshold with a valid payload persists the preference - [MEANT TO PASS]")
     void testBlock_UpdateAlertThreshold_ValidPayload_Persists() throws Exception {
-        // Requirement Cites: [Story 9.1 - AC1, AC2]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
 
         UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("250.00"));
@@ -398,7 +369,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block (fixed): Threshold-only payload is sufficient - daily-summary fields are no longer required - [MEANT TO PASS]")
     void testBlock_UpdateAlertThreshold_ThresholdOnlyPayload_NoLongerRequiresDailySummaryFields() throws Exception {
-        // Requirement Cites: [Story 9.1 - AC1] ("expose an endpoint... to set alert_threshold_amount")
         // /threshold and /daily-summary now use separate DTOs (UpdateAlertThresholdRequestDto /
         // UpdateDailySummaryRequestDto), so a client updating only the threshold no longer has to
         // resend an unrelated dailySummaryEnabled/timezone. Replaces the old test that documented
@@ -428,7 +398,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block: Updating the threshold leaves an existing daily-summary preference untouched - [MEANT TO PASS]")
     void testBlock_UpdateAlertThreshold_PreservesExistingDailySummarySettings() throws Exception {
-        // Requirement Cites: [Story 9.1 - AC1] (independent of Story 10.1's settings)
         UserPreferenceEntity existing = new UserPreferenceEntity();
         existing.setUserId(100L);
         existing.setAlertThresholdAmount(new BigDecimal("100.00"));
@@ -456,7 +425,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block: Invalid IANA timezone identifier is rejected - [MEANT TO FAIL]")
     void testBlock_UpdateDailySummary_InvalidTimezone_ReturnsBadRequest() throws Exception {
-        // Requirement Cites: [Story 10.1 - AC2] (timezone validated as a real IANA identifier)
         UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Not/A_Real_Zone");
 
         mockMvc.perform(put("/api/v1/profile/alerts/daily-summary")
@@ -465,10 +433,6 @@ class ProfileServiceTestSuite {
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
-
-    /* ==========================================================
-       USER STORY 10.1: Opt-in Preferences (Daily Balance Summary)
-       ========================================================== */
 
     // happy path for opting into the daily balance summary email with a real timezone
     // stub the repository so this user has no existing preference row yet
@@ -480,7 +444,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Final Block: Acceptance Criteria Verification - Daily summary opt-in persists enabled flag and timezone - [MEANT TO PASS]")
     void testFinalAC_UpdateDailySummarySettings_ValidPayload_Persists() throws Exception {
-        // Requirement Cites: [Story 10.1 - AC1, AC2, AC3]
         given(preferenceRepository.findByUserId(100L)).willReturn(Optional.empty());
 
         UpdateDailySummaryRequestDto dto = new UpdateDailySummaryRequestDto(true, "Europe/London");
@@ -506,7 +469,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block: Updating daily-summary settings leaves an existing alert threshold untouched - [MEANT TO PASS]")
     void testBlock_UpdateDailySummary_PreservesExistingAlertThreshold() throws Exception {
-        // Requirement Cites: [Story 10.1 - AC1] (independent of Story 9.1's settings)
         UserPreferenceEntity existing = new UserPreferenceEntity();
         existing.setUserId(100L);
         existing.setAlertThresholdAmount(new BigDecimal("500.00"));
@@ -535,7 +497,6 @@ class ProfileServiceTestSuite {
     @Test
     @DisplayName("Block: Pre-Auth token is denied on alert preference endpoints - [MEANT TO FAIL]")
     void testBlock_AlertPreferences_Unauthenticated_Denied() throws Exception {
-        // Requirement Cites: [class-level @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')") on PreferenceController]
         UpdateAlertThresholdRequestDto dto = new UpdateAlertThresholdRequestDto(new BigDecimal("100.00"));
 
         mockMvc.perform(put("/api/v1/profile/alerts/threshold")
@@ -543,13 +504,6 @@ class ProfileServiceTestSuite {
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().is4xxClientError());
     }
-
-    /* ==========================================================
-       USER STORY 9.2/10.2 (cross-service): Preference lookups for notification-service
-       (These back FR9/FR10's Feign clients - previously missing entirely, meaning
-       notification-service would 404 in a live cluster even though its own tests passed
-       against a mocked client.)
-       ========================================================== */
 
     // happy path: notification-service asks for a user's preferences and gets back exactly
     // what's stored, no authentication required since this is an internal service-to-service call
@@ -605,10 +559,6 @@ class ProfileServiceTestSuite {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].userId").value(200));
     }
-
-    /* ==========================================================
-       HELPER UTILITIES
-       ========================================================== */
 
     private String calculateHmac(String data, String key) {
         try {

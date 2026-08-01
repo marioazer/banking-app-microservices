@@ -49,9 +49,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/webhooks/**").permitAll()
                 .requestMatchers("/api/v1/profiles/*/kyc-status").permitAll()
-                // Internal, service-to-service reads for notification-service (FR9.2/FR10.2) -
-                // restricted to GET so the PUT /threshold and /daily-summary endpoints right next
-                // to them stay behind SCOPE_FULL_AUTH as before.
                 .requestMatchers(HttpMethod.GET, "/api/v1/profile/alerts/*", "/api/v1/profile/alerts/daily-summary-users").permitAll()
                 // Swagger/OpenAPI UI - documentation, not application data
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()

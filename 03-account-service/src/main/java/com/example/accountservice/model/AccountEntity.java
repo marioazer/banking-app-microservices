@@ -29,7 +29,7 @@ public class AccountEntity {
     @Column(name = "account_type", nullable = false)
     private AccountType accountType;
 
-    // BigDecimal is mandatory for handling financial data precision[cite: 3]
+    // BigDecimal is mandatory for handling financial data precision
     @Column(name = "available_balance", nullable = false, precision = 19, scale = 4)
     private BigDecimal availableBalance;
 

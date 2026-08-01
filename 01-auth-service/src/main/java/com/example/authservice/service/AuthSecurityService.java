@@ -91,7 +91,6 @@ public class AuthSecurityService {
         SecureRandom random = new SecureRandom();
         String code = String.format("%06d", random.nextInt(999999));
 
-        // 3. Save the hash to the DB (Expires in 5 mins per FR1.3)
         twoFactorCodeRepository.save(new TwoFactorCode(userId, hashString(code)));
 
         return code;
@@ -156,10 +155,6 @@ public class AuthSecurityService {
     // 4. Automated Maintenance
     // ==========================================
 
-    /**
-     * Cron expression: "0 0 * * * *" means "Run at minute 0 past every hour".
-     * Automatically cleans the database of tokens that are already mathematically expired.
-     */
     // learned @Scheduled just needs spring's scheduling support turned on somewhere with
     // @EnableScheduling, then it runs this method automatically on its own background thread
     @Scheduled(cron = "0 0 * * * *")
@@ -172,11 +167,6 @@ public class AuthSecurityService {
     // Internal Cryptography Helpers
     // ==========================================
 
-    /**
-     * Hashes strings using SHA-256. We use SHA-256 instead of BCrypt here because 
-     * UUIDs and 6-digit codes are not user-created passwords; they are machine-generated 
-     * and highly random, meaning we don't need the computationally expensive delay of BCrypt.
-     */
     private String hashString(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

@@ -30,10 +30,6 @@ public class ProfileController {
         this.userProfileRepository = userProfileRepository;
     }
 
-    // =========================================================================
-    // FR4.1: Secure Profile Update API (Customer Facing)
-    // =========================================================================
-    
     @PutMapping("/profiles/me/contact-info")
     public ResponseEntity<?> updateMyContactInfo(@Valid @RequestBody UpdateContactInfoRequestDto dto) {
         // Securely extract the userId from the JWT session, preventing IDOR attacks
@@ -45,10 +41,6 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "Profile updated successfully"));
     }
 
-    // =========================================================================
-    // FR3.1: KYC Status Query (Internal Microservice Facing)
-    // =========================================================================
-    
     // @PathVariable pulls the {userId} segment straight out of the url and hands it to me
     // already converted to a long, spring matches it up by parameter name automatically
     @GetMapping("/profiles/{userId}/kyc-status")
@@ -59,10 +51,6 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("status", user.getKycStatus().name()));
     }
 
-    // =========================================================================
-    // FR3.2: Async Webhook for KYC Approval (External Vendor Facing)
-    // =========================================================================
-    
     @PostMapping("/webhooks/kyc-update")
     public ResponseEntity<?> handleKycWebhook(@RequestBody Map<String, String> payload) {
         // We can safely process this because the KycWebhookFilter verified the HMAC signature
@@ -75,10 +63,6 @@ public class ProfileController {
         return ResponseEntity.ok().build(); 
     }
 
-    // =========================================================================
-    // FR3.4: Manual Admin Override (Internal Employee Facing)
-    // =========================================================================
-    
     // @PreAuthorize runs before the method body even starts, checking the spring expression
     // language string against the logged in user's roles, request never even reaches this
     // code if neither role matches

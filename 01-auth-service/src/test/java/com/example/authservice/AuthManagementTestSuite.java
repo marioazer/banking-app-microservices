@@ -113,10 +113,6 @@ class AuthManagementTestSuite {
         given(userDetailsService.loadUserByUsername("johndoe")).willReturn(mockUser);
     }
 
-    /* ==========================================================
-       USER STORY 1.1: Device Fingerprinting & Recognition
-       ========================================================== */
-
     // checking that an unknown device cookie gets correctly reported as not recognized
     // stub the device repository so looking up this user id with any hash string returns nothing
     // call isdevicerecognized directly on the service with a made up cookie value
@@ -174,10 +170,6 @@ class AuthManagementTestSuite {
                 .andExpect(jsonPath("$.pre_auth_token").exists());
     }
 
-    /* ==========================================================
-       USER STORY 1.3: SMS 2FA via Kafka Integration
-       ========================================================== */
-
     // testing that kicking off sms 2fa actually does three things in one call
     // call triggersms2fa directly with a user id and a phone number
     // first it should delete any old 2fa code that is still sitting around for that user
@@ -219,10 +211,6 @@ class AuthManagementTestSuite {
         verify(twoFactorCodeRepository).delete(validCode);
     }
 
-    /* ==========================================================
-       USER STORY 1.4 & 2.1: JWT Issuance & Security Boundaries
-       ========================================================== */
-
     // checking that a pre auth token by itself cannot get into a fully protected endpoint
     // generate a pre auth token, this is the partial token issued before 2fa is completed
     // hit the logout endpoint using that pre auth token as the bearer token
@@ -257,10 +245,6 @@ class AuthManagementTestSuite {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Logged out successfully"));
     }
-
-    /* ==========================================================
-       USER STORY 2.2: Sliding Session (Activity Refresh)
-       ========================================================== */
 
     // making sure the refresh endpoint fails cleanly when there is no cookie at all
     // call /api/v1/auth/refresh with no refresh token cookie attached to the request
@@ -317,10 +301,6 @@ class AuthManagementTestSuite {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.access_token").exists());
     }
-
-    /* ==========================================================
-       USER STORY 2.4: Explicit Logout & Token Blacklisting
-       ========================================================== */
 
     // testing that logging out actually cleans up both refresh tokens and the jwt itself
     // make up a jti string and an expiration date about fifteen minutes out

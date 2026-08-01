@@ -41,10 +41,6 @@ class AuthDatabaseSchemaTestSuite {
     @Autowired
     private BlacklistedTokenRepository blacklistedTokenRepository;
 
-    /* ==========================================================
-       TABLE 1: recognized_devices CONSTRAINTS & QUERIES
-       ========================================================== */
-
     // this one is testing the unique constraint on the device_hash column
     // first I save a device with a hash so there is already a row sitting in the table
     // then I make a second device object using that exact same hash string
@@ -91,10 +87,6 @@ class AuthDatabaseSchemaTestSuite {
         assertThat(found.get().getUserId()).isEqualTo(200L);
     }
 
-    /* ==========================================================
-       TABLE 2: two_factor_codes DELETION & RETRIEVAL
-       ========================================================== */
-
     // testing the deletebyuserid query on the two factor code table
     // I persist one active 2fa code for a user first
     // then call deletebyuserid which is a custom modifying query, not a default jpa method
@@ -116,10 +108,6 @@ class AuthDatabaseSchemaTestSuite {
         Optional<TwoFactorCode> found = twoFactorCodeRepository.findByUserId(300L);
         assertThat(found).isEmpty();
     }
-
-    /* ==========================================================
-       TABLE 3: refresh_tokens REVOCATION QUERY
-       ========================================================== */
 
     // this one is for the bulk revoke query on refresh tokens
     // I create two refresh tokens for the same user and persist both of them
@@ -147,10 +135,6 @@ class AuthDatabaseSchemaTestSuite {
         assertThat(updatedToken1.get().getRevoked()).isTrue();
         assertThat(updatedToken1.get().isValid()).isFalse();
     }
-
-    /* ==========================================================
-       TABLE 4: revoked_jwt_blacklist PURGE QUERY
-       ========================================================== */
 
     // this test is for the cron style cleanup query that purges expired blacklist entries
     // I make one token that already expired ten minutes ago and one that is still good for ten more minutes

@@ -9,10 +9,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-/**
- * Data Transfer Object for initiating external wire transfers.
- * Fulfills FR8.1 AC1 & AC2: Accepts recipient details and validates formats.
- */
 public record ExternalWireRequestDto(
 
         @NotBlank(message = "IBAN is mandatory")

@@ -17,11 +17,6 @@ public interface BlacklistedTokenRepository extends JpaRepository<BlacklistedTok
     // Spring Data JPA automatically provides existsById(String jti)
     // which our JwtAuthenticationFilter is already calling!
 
-    /**
-     * Purges tokens from the database that have naturally expired.
-     * Since an expired JWT will be rejected by the JwtService math anyway,
-     * we no longer need to waste database space storing its blacklist status!
-     */
     @Modifying
     @Query("DELETE FROM BlacklistedToken b WHERE b.expiresAt < :now")
     void deleteAllExpiredTokensSince(LocalDateTime now);
