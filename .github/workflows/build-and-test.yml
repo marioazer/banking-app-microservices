@@ -32,6 +32,12 @@ jobs:
           java-version: '17'
           cache: maven
 
+      # belt-and-suspenders: mvnw is tracked with the executable bit set, but this guards against
+      # it ever getting silently dropped again by a future commit from a Windows checkout
+      - name: Ensure mvnw is executable
+        working-directory: ${{ matrix.service_dir }}
+        run: chmod +x mvnw
+
       # each service is a completely standalone maven project, so this just cds into its folder and runs
       # its own test suite, matrix.service_dir swaps in one of the six directories listed above per job
       - name: Run tests
