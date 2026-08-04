@@ -29,3 +29,6 @@ Thumbs.db
 # defensively in case one ever gets created for local secrets
 .env
 *.env
+
+# personal local planning doc for a future AWS deploy session - not meant to be tracked/shared
+aws-deployment-plan/
