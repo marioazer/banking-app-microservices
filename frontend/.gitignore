@@ -47,3 +47,7 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Design reference (local only)
+design/
+cypress/e2e/design-review.cy.ts

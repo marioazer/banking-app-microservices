@@ -1,16 +1,19 @@
 import { Component, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 
 import { ProfileService } from '../../core/services/profile.service';
 import { AuthService } from '../../core/auth.service';
 import { ButtonComponent } from '../../shared/button/button.component';
 import { AlertBannerComponent } from '../../shared/alert-banner/alert-banner.component';
 import { NavComponent } from '../../shared/nav/nav.component';
+import { InputComponent } from '../../shared/input/input.component';
 
 @Component({
   selector: 'app-alert-preferences',
   standalone: true,
-  imports: [ButtonComponent, AlertBannerComponent, NavComponent],
+  imports: [FormsModule, ButtonComponent, AlertBannerComponent, NavComponent, InputComponent],
   templateUrl: './alert-preferences.component.html',
+  styleUrl: './alert-preferences.component.css',
 })
 export class AlertPreferencesComponent implements OnInit {
   readonly threshold = signal('');

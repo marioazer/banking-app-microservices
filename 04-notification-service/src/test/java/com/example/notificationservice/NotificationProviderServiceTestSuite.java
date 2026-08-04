@@ -1,6 +1,7 @@
 package com.example.notificationservice;
 
 import com.example.notificationservice.client.EmailProviderClient;
+import com.example.notificationservice.client.SmsProviderClient;
 import com.example.notificationservice.service.NotificationProviderService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,9 @@ class NotificationProviderServiceTestSuite {
 
     @MockBean
     private EmailProviderClient emailProviderClient;
+
+    @MockBean
+    private SmsProviderClient smsProviderClient;
 
     // basic happy path, sending an email that succeeds on the very first try
     // call dispatchemail directly with a normal address, subject and html body
@@ -55,5 +59,30 @@ class NotificationProviderServiceTestSuite {
 
         // maxAttempts = 3: the real send() call is attempted exactly 3 times before @Recover takes over.
         verify(emailProviderClient, times(3)).send(eq("user_2@bank.com"), eq("Subject"), eq("<p>Body</p>"));
+    }
+
+    // same happy path as testBlock1_successfulDispatch_singleAttempt, mirrored for SMS - confirms
+    // dispatchSms wires up to SmsProviderClient the same way dispatchEmail wires up to EmailProviderClient
+    @Test
+    @DisplayName("SMS: Successful dispatch calls the provider exactly once, no retries - [MEANT TO PASS]")
+    void testSms_successfulDispatch_singleAttempt() {
+        notificationProviderService.dispatchSms("+15551234567", "Your verification code is 123456.");
+
+        verify(smsProviderClient, times(1)).send("+15551234567", "Your verification code is 123456.");
+    }
+
+    // same @retryable/@recover contract as the email test, mirrored for SMS - a 2FA code is
+    // time-sensitive, so a persistently failing provider must still not crash the Kafka consumer
+    @Test
+    @DisplayName("SMS: Provider failing every attempt is retried 3 times then recovers without propagating - [MEANT TO PASS]")
+    void testSms_persistentProviderFailure_retriesThenRecovers() {
+        doThrow(new RuntimeException("503 Service Unavailable: Twilio API Gateway timeout"))
+                .when(smsProviderClient).send(anyString(), anyString());
+
+        assertThatCode(() ->
+                notificationProviderService.dispatchSms("+15559876543", "Your verification code is 654321."))
+                .doesNotThrowAnyException();
+
+        verify(smsProviderClient, times(3)).send(eq("+15559876543"), eq("Your verification code is 654321."));
     }
 }

@@ -32,3 +32,6 @@ Thumbs.db
 
 # personal local planning doc for a future AWS deploy session - not meant to be tracked/shared
 aws-deployment-plan/
+
+# stray maven debug output, not meant to be tracked
+maven-debug.log

@@ -19,7 +19,7 @@ describe('Banking app user journey', () => {
 
     cy.get('select').eq(0).select('3');
     cy.get('select').eq(1).select('4');
-    cy.get('input[name="amount"]').type('25');
+    cy.get('app-input[id="amount"] input').type('25');
     cy.contains('button', 'Send').click();
 
     cy.contains(/successful/i).should('be.visible');

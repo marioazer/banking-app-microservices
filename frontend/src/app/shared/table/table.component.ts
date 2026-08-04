@@ -28,6 +28,7 @@ export interface TableColumn {
       </tbody>
     </table>
   `,
+  styleUrl: './table.component.css',
 })
 export class TableComponent<T extends object = object> {
   @Input() columns: TableColumn[] = [];

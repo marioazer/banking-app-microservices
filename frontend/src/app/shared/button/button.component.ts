@@ -13,6 +13,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
       <ng-content></ng-content>
     </button>
   `,
+  styleUrl: './button.component.css',
 })
 export class ButtonComponent {
   @Input() variant: 'primary' | 'secondary' | 'danger' = 'primary';

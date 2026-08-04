@@ -1,34 +1,39 @@
-<form (ngSubmit)="onSubmit()">
-  <app-input
-    id="username"
-    label="Username"
-    [ngModel]="username()"
-    (ngModelChange)="username.set($event)"
-    name="username"
-  />
-  <app-input
-    id="password"
-    label="Password"
-    type="password"
-    [ngModel]="password()"
-    (ngModelChange)="password.set($event)"
-    name="password"
-  />
-  <app-input
-    id="confirmPassword"
-    label="Confirm Password"
-    type="password"
-    [ngModel]="confirmPassword()"
-    (ngModelChange)="confirmPassword.set($event)"
-    name="confirmPassword"
-  />
-  <app-input
-    id="phoneNumber"
-    label="Phone Number"
-    [ngModel]="phoneNumber()"
-    (ngModelChange)="phoneNumber.set($event)"
-    name="phoneNumber"
-  />
-  <app-alert-banner type="error" [message]="errorMessage()" />
-  <app-button type="submit" [disabled]="loading()">Sign Up</app-button>
-</form>
+<div class="auth-page">
+  <div class="card auth-card">
+    <h1>Create Account</h1>
+    <form class="stack" (ngSubmit)="onSubmit()">
+      <app-input
+        id="username"
+        label="Username"
+        [ngModel]="username()"
+        (ngModelChange)="username.set($event)"
+        name="username"
+      />
+      <app-input
+        id="password"
+        label="Password"
+        type="password"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        name="password"
+      />
+      <app-input
+        id="confirmPassword"
+        label="Confirm Password"
+        type="password"
+        [ngModel]="confirmPassword()"
+        (ngModelChange)="confirmPassword.set($event)"
+        name="confirmPassword"
+      />
+      <app-input
+        id="phoneNumber"
+        label="Phone Number"
+        [ngModel]="phoneNumber()"
+        (ngModelChange)="phoneNumber.set($event)"
+        name="phoneNumber"
+      />
+      <app-alert-banner type="error" [message]="errorMessage()" />
+      <app-button type="submit" [disabled]="loading()">Sign Up</app-button>
+    </form>
+  </div>
+</div>

@@ -1,7 +1,9 @@
 <nav>
-  <a routerLink="/dashboard">Dashboard</a>
-  <a routerLink="/transfer">Transfer</a>
-  <a routerLink="/profile">Profile</a>
-  <a routerLink="/profile/alerts">Alerts</a>
+  <div>
+    <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+    <a routerLink="/transfer" routerLinkActive="active">Transfer</a>
+    <a routerLink="/profile" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Profile</a>
+    <a routerLink="/profile/alerts" routerLinkActive="active">Alerts</a>
+  </div>
   <button type="button" (click)="logout()">Logout</button>
 </nav>

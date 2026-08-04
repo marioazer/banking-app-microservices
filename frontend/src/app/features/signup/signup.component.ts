@@ -15,6 +15,7 @@ const MIN_PASSWORD_LENGTH = 8;
   standalone: true,
   imports: [FormsModule, InputComponent, ButtonComponent, AlertBannerComponent],
   templateUrl: './signup.component.html',
+  styleUrl: './signup.component.css',
 })
 export class SignupComponent {
   readonly username = signal('');

@@ -25,5 +25,9 @@ profile-service:
 account-service:
   url: ${ACCOUNT_SERVICE_URL:http://account-service:8080}
 
+sms:
+  enabled: ${SMS_ENABLED:true}
+  textbelt-key: ${TEXTBELT_KEY:textbelt}
+
 server:
   port: 8080

@@ -1,41 +1,41 @@
 <app-nav />
 
-<section>
-  <h2>Alert Threshold</h2>
-  <label>
-    Threshold Amount
-    <input
+<div class="page stack">
+  <section class="card stack">
+    <h2>Alert Threshold</h2>
+    <app-input
+      id="threshold"
+      label="Threshold Amount"
+      [ngModel]="threshold()"
+      (ngModelChange)="threshold.set($event)"
       name="threshold"
-      type="text"
-      [value]="threshold()"
-      (input)="threshold.set($any($event.target).value)"
     />
-  </label>
-  <app-alert-banner type="error" [message]="thresholdError()" />
-  <app-alert-banner [type]="thresholdMessageType()" [message]="thresholdMessage()" />
-  <app-button (clicked)="saveThreshold()">Save Threshold</app-button>
-</section>
+    <app-alert-banner type="error" [message]="thresholdError()" />
+    <app-alert-banner [type]="thresholdMessageType()" [message]="thresholdMessage()" />
+    <app-button (clicked)="saveThreshold()">Save Threshold</app-button>
+  </section>
 
-<section>
-  <h2>Daily Summary</h2>
-  <label>
-    Enable Daily Summary
-    <input
-      name="dailySummaryEnabled"
-      type="checkbox"
-      [checked]="dailySummaryEnabled()"
-      (change)="dailySummaryEnabled.set($any($event.target).checked)"
-    />
-  </label>
-  <label>
-    Timezone
-    <select name="timezone" [value]="timezone()" (change)="timezone.set($any($event.target).value)">
-      <option value="America/New_York">America/New_York</option>
-      <option value="America/Chicago">America/Chicago</option>
-      <option value="America/Denver">America/Denver</option>
-      <option value="America/Los_Angeles">America/Los_Angeles</option>
-    </select>
-  </label>
-  <app-alert-banner [type]="dailySummaryMessageType()" [message]="dailySummaryMessage()" />
-  <app-button (clicked)="saveDailySummary()">Save Alerts</app-button>
-</section>
+  <section class="card stack">
+    <h2>Daily Summary</h2>
+    <label class="checkbox-field">
+      <input
+        name="dailySummaryEnabled"
+        type="checkbox"
+        [checked]="dailySummaryEnabled()"
+        (change)="dailySummaryEnabled.set($any($event.target).checked)"
+      />
+      Enable Daily Summary
+    </label>
+    <div class="select-group">
+      <label for="timezone">Timezone</label>
+      <select id="timezone" name="timezone" [value]="timezone()" (change)="timezone.set($any($event.target).value)">
+        <option value="America/New_York">America/New_York</option>
+        <option value="America/Chicago">America/Chicago</option>
+        <option value="America/Denver">America/Denver</option>
+        <option value="America/Los_Angeles">America/Los_Angeles</option>
+      </select>
+    </div>
+    <app-alert-banner [type]="dailySummaryMessageType()" [message]="dailySummaryMessage()" />
+    <app-button (clicked)="saveDailySummary()">Save Alerts</app-button>
+  </section>
+</div>

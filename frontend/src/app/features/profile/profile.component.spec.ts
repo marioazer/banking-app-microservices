@@ -12,7 +12,7 @@ describe('ProfileComponent', () => {
   let profileServiceSpy: jasmine.SpyObj<ProfileService>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
 
-  function setup(kycStatus: KycStatus = 'PENDING_VERIFICATION'): void {
+  async function setup(kycStatus: KycStatus = 'PENDING_VERIFICATION'): Promise<void> {
     profileServiceSpy = jasmine.createSpyObj('ProfileService', ['getKycStatus', 'updateContactInfo']);
     profileServiceSpy.getKycStatus.and.returnValue(of(kycStatus));
     authServiceSpy = jasmine.createSpyObj('AuthService', ['logout'], { userId: () => 42 });
@@ -29,23 +29,26 @@ describe('ProfileComponent', () => {
 
     fixture = TestBed.createComponent(ProfileComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
   }
 
-  function inputs(): HTMLInputElement[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('input'));
+  function inputById(id: string): HTMLInputElement {
+    return fixture.nativeElement.querySelector(`app-input[id="${id}"] input`);
   }
 
-  function fillValidForm(): void {
-    inputs().find((i) => i.name === 'phoneNumber')!.value = '+15551234567';
-    inputs().find((i) => i.name === 'phoneNumber')!.dispatchEvent(new Event('input'));
-    inputs().find((i) => i.name === 'addressLine1')!.value = '123 Main St';
-    inputs().find((i) => i.name === 'addressLine1')!.dispatchEvent(new Event('input'));
-    inputs().find((i) => i.name === 'city')!.value = 'Springfield';
-    inputs().find((i) => i.name === 'city')!.dispatchEvent(new Event('input'));
-    inputs().find((i) => i.name === 'state')!.value = 'IL';
-    inputs().find((i) => i.name === 'state')!.dispatchEvent(new Event('input'));
-    inputs().find((i) => i.name === 'zipCode')!.value = '62704';
-    inputs().find((i) => i.name === 'zipCode')!.dispatchEvent(new Event('input'));
+  function setValue(id: string, value: string): void {
+    const input = inputById(id);
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+  }
+
+  async function fillValidForm(): Promise<void> {
+    setValue('phoneNumber', '+15551234567');
+    setValue('addressLine1', '123 Main St');
+    setValue('city', 'Springfield');
+    setValue('state', 'IL');
+    setValue('zipCode', '62704');
+    await fixture.whenStable();
   }
 
   function clickButtonContaining(text: string): void {
@@ -53,27 +56,27 @@ describe('ProfileComponent', () => {
     buttons.find((b) => b.textContent?.includes(text))!.click();
   }
 
-  it('fetches and displays the KYC status for the logged-in user', () => {
-    setup('APPROVED');
+  it('fetches and displays the KYC status for the logged-in user', async () => {
+    await setup('APPROVED');
     expect(profileServiceSpy.getKycStatus).toHaveBeenCalledWith(42);
     expect(fixture.nativeElement.textContent).toContain('APPROVED');
   });
 
-  it('shows an informational note when KYC status is not APPROVED', () => {
-    setup('PENDING_VERIFICATION');
+  it('shows an informational note when KYC status is not APPROVED', async () => {
+    await setup('PENDING_VERIFICATION');
     expect(fixture.nativeElement.textContent).toContain('verify');
   });
 
-  it('does not show the informational note when KYC status is APPROVED', () => {
-    setup('APPROVED');
+  it('does not show the informational note when KYC status is APPROVED', async () => {
+    await setup('APPROVED');
     expect(fixture.nativeElement.textContent.toLowerCase()).not.toContain('verify your identity');
   });
 
-  it('submits valid contact info and shows a save confirmation', () => {
-    setup();
+  it('submits valid contact info and shows a save confirmation', async () => {
+    await setup();
     profileServiceSpy.updateContactInfo.and.returnValue(of({}));
 
-    fillValidForm();
+    await fillValidForm();
     clickButtonContaining('Save');
     fixture.detectChanges();
 
@@ -87,12 +90,11 @@ describe('ProfileComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('saved');
   });
 
-  it('shows inline validation and does not submit for an invalid phone number', () => {
-    setup();
-    fillValidForm();
-    const phoneInput = inputs().find((i) => i.name === 'phoneNumber')!;
-    phoneInput.value = 'not-a-phone';
-    phoneInput.dispatchEvent(new Event('input'));
+  it('shows inline validation and does not submit for an invalid phone number', async () => {
+    await setup();
+    await fillValidForm();
+    setValue('phoneNumber', 'not-a-phone');
+    await fixture.whenStable();
 
     clickButtonContaining('Save');
     fixture.detectChanges();
@@ -101,11 +103,11 @@ describe('ProfileComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('phone number');
   });
 
-  it('shows an error message when saving fails', () => {
-    setup();
+  it('shows an error message when saving fails', async () => {
+    await setup();
     profileServiceSpy.updateContactInfo.and.returnValue(throwError(() => new Error('server error')));
 
-    fillValidForm();
+    await fillValidForm();
     clickButtonContaining('Save');
     fixture.detectChanges();
 

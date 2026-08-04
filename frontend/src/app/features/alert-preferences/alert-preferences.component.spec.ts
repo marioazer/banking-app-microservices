@@ -18,7 +18,7 @@ describe('AlertPreferencesComponent', () => {
     timezone: 'America/New_York',
   };
 
-  function setup(pref: UserPreference = mockPreference): void {
+  async function setup(pref: UserPreference = mockPreference): Promise<void> {
     profileServiceSpy = jasmine.createSpyObj('ProfileService', [
       'getPreferences',
       'updateAlertThreshold',
@@ -39,10 +39,12 @@ describe('AlertPreferencesComponent', () => {
 
     fixture = TestBed.createComponent(AlertPreferencesComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
   }
 
   function thresholdInput(): HTMLInputElement {
-    return fixture.nativeElement.querySelector('input[name="threshold"]');
+    return fixture.nativeElement.querySelector('app-input[id="threshold"] input');
   }
 
   function dailySummaryToggle(): HTMLInputElement {
@@ -58,20 +60,21 @@ describe('AlertPreferencesComponent', () => {
     buttons.find((b) => b.textContent?.includes(text))!.click();
   }
 
-  it('loads and pre-fills existing preferences on init', () => {
-    setup();
+  it('loads and pre-fills existing preferences on init', async () => {
+    await setup();
     expect(profileServiceSpy.getPreferences).toHaveBeenCalledWith(42);
     expect(thresholdInput().value).toBe('500');
     expect(dailySummaryToggle().checked).toBeTrue();
     expect(timezoneSelect().value).toBe('America/New_York');
   });
 
-  it('saves a valid threshold and shows a confirmation', () => {
-    setup();
+  it('saves a valid threshold and shows a confirmation', async () => {
+    await setup();
     profileServiceSpy.updateAlertThreshold.and.returnValue(of({}));
 
     thresholdInput().value = '750';
     thresholdInput().dispatchEvent(new Event('input'));
+    await fixture.whenStable();
     clickButtonContaining('Save Threshold');
     fixture.detectChanges();
 
@@ -79,10 +82,11 @@ describe('AlertPreferencesComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('saved');
   });
 
-  it('shows inline validation and does not save a non-positive threshold', () => {
-    setup();
+  it('shows inline validation and does not save a non-positive threshold', async () => {
+    await setup();
     thresholdInput().value = '0';
     thresholdInput().dispatchEvent(new Event('input'));
+    await fixture.whenStable();
     clickButtonContaining('Save Threshold');
     fixture.detectChanges();
 
@@ -90,8 +94,8 @@ describe('AlertPreferencesComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('positive amount');
   });
 
-  it('saves daily summary settings and shows a confirmation', () => {
-    setup();
+  it('saves daily summary settings and shows a confirmation', async () => {
+    await setup();
     profileServiceSpy.updateDailySummary.and.returnValue(of({}));
 
     timezoneSelect().value = 'America/Chicago';
@@ -103,8 +107,8 @@ describe('AlertPreferencesComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('saved');
   });
 
-  it('does not require a timezone when daily summary is turned off', () => {
-    setup({ ...mockPreference, dailySummaryEnabled: false, timezone: '' });
+  it('does not require a timezone when daily summary is turned off', async () => {
+    await setup({ ...mockPreference, dailySummaryEnabled: false, timezone: '' });
     profileServiceSpy.updateDailySummary.and.returnValue(of({}));
 
     clickButtonContaining('Save Alerts');
@@ -113,12 +117,13 @@ describe('AlertPreferencesComponent', () => {
     expect(profileServiceSpy.updateDailySummary).toHaveBeenCalledWith(false, '');
   });
 
-  it('shows an error message when saving the threshold fails', () => {
-    setup();
+  it('shows an error message when saving the threshold fails', async () => {
+    await setup();
     profileServiceSpy.updateAlertThreshold.and.returnValue(throwError(() => new Error('server error')));
 
     thresholdInput().value = '750';
     thresholdInput().dispatchEvent(new Event('input'));
+    await fixture.whenStable();
     clickButtonContaining('Save Threshold');
     fixture.detectChanges();
 

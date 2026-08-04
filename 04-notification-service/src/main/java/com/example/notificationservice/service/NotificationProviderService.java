@@ -1,6 +1,7 @@
 package com.example.notificationservice.service;
 
 import com.example.notificationservice.client.EmailProviderClient;
+import com.example.notificationservice.client.SmsProviderClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.retry.annotation.Backoff;
@@ -14,9 +15,11 @@ public class NotificationProviderService {
     private static final Logger log = LoggerFactory.getLogger(NotificationProviderService.class);
 
     private final EmailProviderClient emailProviderClient;
+    private final SmsProviderClient smsProviderClient;
 
-    public NotificationProviderService(EmailProviderClient emailProviderClient) {
+    public NotificationProviderService(EmailProviderClient emailProviderClient, SmsProviderClient smsProviderClient) {
         this.emailProviderClient = emailProviderClient;
+        this.smsProviderClient = smsProviderClient;
     }
 
     // learned @retryable needs @enablescheduling's cousin @enableretry turned on somewhere in the
@@ -39,6 +42,24 @@ public class NotificationProviderService {
         // In a production system, this would write the failed payload to a Dead Letter Queue (DLQ)
         // or a failed_notifications database table for a cron job to retry tomorrow.
         log.error("CRITICAL FAILURE: Exhausted all retries for email to [{}]. Reason: {}", userEmail, e.getMessage());
+        log.error("Payload saved to Dead Letter Queue for manual review.");
+    }
+
+    @Retryable(
+            retryFor = { RuntimeException.class },
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000, multiplier = 2.0)
+    )
+    public void dispatchSms(String phoneNumber, String message) {
+        log.info("Attempting to dispatch SMS via external provider to [{}]", phoneNumber);
+        smsProviderClient.send(phoneNumber, message);
+    }
+
+    @Recover
+    public void recoverSmsDispatchFailure(RuntimeException e, String phoneNumber, String message) {
+        // Same DLQ story as recoverDispatchFailure - a 2FA code that never arrives is time-sensitive,
+        // so this at least keeps the failure from crashing the consumer/blocking other Kafka messages.
+        log.error("CRITICAL FAILURE: Exhausted all retries for SMS to [{}]. Reason: {}", phoneNumber, e.getMessage());
         log.error("Payload saved to Dead Letter Queue for manual review.");
     }
 }

@@ -19,7 +19,7 @@ describe('TransferComponent', () => {
     { accountId: 2, accountType: 'SAVINGS', availableBalance: 5000, routingNumber: '021000021', maskedAccountNumber: '****5678', status: 'ACTIVE' },
   ];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     transferServiceSpy = jasmine.createSpyObj('TransferService', ['transferInternal', 'transferExternal']);
     accountServiceSpy = jasmine.createSpyObj('AccountService', ['getAccounts']);
     accountServiceSpy.getAccounts.and.returnValue(of(mockAccounts));
@@ -36,14 +36,21 @@ describe('TransferComponent', () => {
 
     fixture = TestBed.createComponent(TransferComponent);
     fixture.detectChanges();
+    await fixture.whenStable();
   });
 
   function selects(): HTMLSelectElement[] {
     return Array.from(fixture.nativeElement.querySelectorAll('select'));
   }
 
-  function inputs(): HTMLInputElement[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('input'));
+  function inputById(id: string): HTMLInputElement {
+    return fixture.nativeElement.querySelector(`app-input[id="${id}"] input`);
+  }
+
+  function setValue(id: string, value: string): void {
+    const input = inputById(id);
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
   }
 
   function clickButtonContaining(text: string): void {
@@ -58,7 +65,7 @@ describe('TransferComponent', () => {
   });
 
   describe('internal transfer (default tab)', () => {
-    it('submits with the selected accounts and amount', () => {
+    it('submits with the selected accounts and amount', async () => {
       transferServiceSpy.transferInternal.and.returnValue(of({ transactionId: 'txn-1', status: 'COMPLETED' }));
 
       const [fromSelect, toSelect] = selects();
@@ -66,9 +73,8 @@ describe('TransferComponent', () => {
       fromSelect.dispatchEvent(new Event('change'));
       toSelect.value = '2';
       toSelect.dispatchEvent(new Event('change'));
-      const amountInput = inputs().find((i) => i.name === 'amount')!;
-      amountInput.value = '100';
-      amountInput.dispatchEvent(new Event('input'));
+      setValue('amount', '100');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
 
@@ -79,15 +85,14 @@ describe('TransferComponent', () => {
       });
     });
 
-    it('shows a validation error and does not call the service for a non-positive amount', () => {
+    it('shows a validation error and does not call the service for a non-positive amount', async () => {
       const [fromSelect, toSelect] = selects();
       fromSelect.value = '1';
       fromSelect.dispatchEvent(new Event('change'));
       toSelect.value = '2';
       toSelect.dispatchEvent(new Event('change'));
-      const amountInput = inputs().find((i) => i.name === 'amount')!;
-      amountInput.value = '0';
-      amountInput.dispatchEvent(new Event('input'));
+      setValue('amount', '0');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
       fixture.detectChanges();
@@ -96,15 +101,15 @@ describe('TransferComponent', () => {
       expect(fixture.nativeElement.textContent).toContain('positive amount');
     });
 
-    it('shows a success message with the transaction id when the transfer completes', () => {
+    it('shows a success message with the transaction id when the transfer completes', async () => {
       transferServiceSpy.transferInternal.and.returnValue(of({ transactionId: 'txn-1', status: 'COMPLETED' }));
       const [fromSelect, toSelect] = selects();
       fromSelect.value = '1';
       fromSelect.dispatchEvent(new Event('change'));
       toSelect.value = '2';
       toSelect.dispatchEvent(new Event('change'));
-      inputs().find((i) => i.name === 'amount')!.value = '100';
-      inputs().find((i) => i.name === 'amount')!.dispatchEvent(new Event('input'));
+      setValue('amount', '100');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
       fixture.detectChanges();
@@ -113,15 +118,15 @@ describe('TransferComponent', () => {
       expect(fixture.nativeElement.textContent.toLowerCase()).toContain('success');
     });
 
-    it('shows an "under review" message when the transfer is PENDING_APPROVAL', () => {
+    it('shows an "under review" message when the transfer is PENDING_APPROVAL', async () => {
       transferServiceSpy.transferInternal.and.returnValue(of({ transactionId: 'txn-2', status: 'PENDING_APPROVAL' }));
       const [fromSelect, toSelect] = selects();
       fromSelect.value = '1';
       fromSelect.dispatchEvent(new Event('change'));
       toSelect.value = '2';
       toSelect.dispatchEvent(new Event('change'));
-      inputs().find((i) => i.name === 'amount')!.value = '9999';
-      inputs().find((i) => i.name === 'amount')!.dispatchEvent(new Event('input'));
+      setValue('amount', '9999');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
       fixture.detectChanges();
@@ -129,7 +134,7 @@ describe('TransferComponent', () => {
       expect(fixture.nativeElement.textContent).toContain('under review');
     });
 
-    it('shows an identity-verification message on a 403 KYC error', () => {
+    it('shows an identity-verification message on a 403 KYC error', async () => {
       transferServiceSpy.transferInternal.and.returnValue(
         throwError(() => new HttpErrorResponse({ status: 403, error: { error: 'Action forbidden: KYC verification is PENDING_VERIFICATION' } })),
       );
@@ -138,8 +143,8 @@ describe('TransferComponent', () => {
       fromSelect.dispatchEvent(new Event('change'));
       toSelect.value = '2';
       toSelect.dispatchEvent(new Event('change'));
-      inputs().find((i) => i.name === 'amount')!.value = '100';
-      inputs().find((i) => i.name === 'amount')!.dispatchEvent(new Event('input'));
+      setValue('amount', '100');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
       fixture.detectChanges();
@@ -149,30 +154,28 @@ describe('TransferComponent', () => {
   });
 
   describe('external wire tab', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       clickButtonContaining('External Wire');
       fixture.detectChanges();
+      await fixture.whenStable();
     });
 
     it('shows external wire fields and hides the internal to-account select', () => {
-      expect(inputs().some((i) => i.name === 'iban')).toBeTrue();
-      expect(inputs().some((i) => i.name === 'swiftCode')).toBeTrue();
-      expect(inputs().some((i) => i.name === 'beneficiaryName')).toBeTrue();
+      expect(inputById('iban')).not.toBeNull();
+      expect(inputById('swiftCode')).not.toBeNull();
+      expect(inputById('beneficiaryName')).not.toBeNull();
     });
 
-    it('submits with the entered wire details', () => {
+    it('submits with the entered wire details', async () => {
       transferServiceSpy.transferExternal.and.returnValue(of({ transactionId: 'txn-3', status: 'COMPLETED' }));
 
       selects()[0].value = '1';
       selects()[0].dispatchEvent(new Event('change'));
-      inputs().find((i) => i.name === 'iban')!.value = 'GB29NWBK60161331926819';
-      inputs().find((i) => i.name === 'iban')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'swiftCode')!.value = 'NWBKGB2L';
-      inputs().find((i) => i.name === 'swiftCode')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'beneficiaryName')!.value = 'Jane Doe';
-      inputs().find((i) => i.name === 'beneficiaryName')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'amount')!.value = '250';
-      inputs().find((i) => i.name === 'amount')!.dispatchEvent(new Event('input'));
+      setValue('iban', 'GB29NWBK60161331926819');
+      setValue('swiftCode', 'NWBKGB2L');
+      setValue('beneficiaryName', 'Jane Doe');
+      setValue('extAmount', '250');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
 
@@ -184,17 +187,14 @@ describe('TransferComponent', () => {
       });
     });
 
-    it('shows a validation error and does not call the service for an invalid IBAN', () => {
+    it('shows a validation error and does not call the service for an invalid IBAN', async () => {
       selects()[0].value = '1';
       selects()[0].dispatchEvent(new Event('change'));
-      inputs().find((i) => i.name === 'iban')!.value = 'NOT-AN-IBAN';
-      inputs().find((i) => i.name === 'iban')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'swiftCode')!.value = 'NWBKGB2L';
-      inputs().find((i) => i.name === 'swiftCode')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'beneficiaryName')!.value = 'Jane Doe';
-      inputs().find((i) => i.name === 'beneficiaryName')!.dispatchEvent(new Event('input'));
-      inputs().find((i) => i.name === 'amount')!.value = '250';
-      inputs().find((i) => i.name === 'amount')!.dispatchEvent(new Event('input'));
+      setValue('iban', 'NOT-AN-IBAN');
+      setValue('swiftCode', 'NWBKGB2L');
+      setValue('beneficiaryName', 'Jane Doe');
+      setValue('extAmount', '250');
+      await fixture.whenStable();
 
       clickButtonContaining('Send');
       fixture.detectChanges();

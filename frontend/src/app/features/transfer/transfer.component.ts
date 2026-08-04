@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 
 import { AccountService } from '../../core/services/account.service';
 import { TransferService } from '../../core/services/transfer.service';
@@ -8,6 +9,7 @@ import { TransferResponse } from '../../core/models/transfer.models';
 import { ButtonComponent } from '../../shared/button/button.component';
 import { AlertBannerComponent } from '../../shared/alert-banner/alert-banner.component';
 import { NavComponent } from '../../shared/nav/nav.component';
+import { InputComponent } from '../../shared/input/input.component';
 
 type Tab = 'internal' | 'external';
 type ResultType = 'success' | 'error' | 'info';
@@ -17,8 +19,9 @@ const IBAN_PATTERN = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/;
 @Component({
   selector: 'app-transfer',
   standalone: true,
-  imports: [ButtonComponent, AlertBannerComponent, NavComponent],
+  imports: [FormsModule, ButtonComponent, AlertBannerComponent, NavComponent, InputComponent],
   templateUrl: './transfer.component.html',
+  styleUrl: './transfer.component.css',
 })
 export class TransferComponent implements OnInit {
   readonly accounts = signal<AccountOverview[]>([]);

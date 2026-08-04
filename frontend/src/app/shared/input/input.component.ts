@@ -21,6 +21,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
       }
     </div>
   `,
+  styleUrl: './input.component.css',
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,

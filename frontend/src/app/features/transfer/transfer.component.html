@@ -1,69 +1,90 @@
 <app-nav />
 
-<app-button [variant]="activeTab() === 'internal' ? 'primary' : 'secondary'" (clicked)="selectTab('internal')">
-  Internal Transfer
-</app-button>
-<app-button [variant]="activeTab() === 'external' ? 'primary' : 'secondary'" (clicked)="selectTab('external')">
-  External Wire
-</app-button>
+<div class="page">
+  <div class="tab-row">
+    <app-button [variant]="activeTab() === 'internal' ? 'primary' : 'secondary'" (clicked)="selectTab('internal')">
+      Internal Transfer
+    </app-button>
+    <app-button [variant]="activeTab() === 'external' ? 'primary' : 'secondary'" (clicked)="selectTab('external')">
+      External Wire
+    </app-button>
+  </div>
 
-@if (activeTab() === 'internal') {
-  <form (submit)="submitInternal(); $event.preventDefault()">
-    <label>
-      From Account
-      <select (change)="onFromAccountChange($any($event.target).value)">
-        <option value="" selected>Select account</option>
-        @for (acc of accounts(); track acc.accountId) {
-          <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      To Account
-      <select (change)="onToAccountChange($any($event.target).value)">
-        <option value="" selected>Select account</option>
-        @for (acc of accounts(); track acc.accountId) {
-          <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Amount
-      <input name="amount" type="text" (input)="amount.set($any($event.target).value)" />
-    </label>
-    <app-alert-banner type="error" [message]="validationError()" />
-    <app-alert-banner [type]="resultType()" [message]="resultMessage()" />
-    <app-button type="submit">Send</app-button>
-  </form>
-} @else {
-  <form (submit)="submitExternal(); $event.preventDefault()">
-    <label>
-      From Account
-      <select (change)="onExtFromAccountChange($any($event.target).value)">
-        <option value="" selected>Select account</option>
-        @for (acc of accounts(); track acc.accountId) {
-          <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Beneficiary Name
-      <input name="beneficiaryName" type="text" (input)="beneficiaryName.set($any($event.target).value)" />
-    </label>
-    <label>
-      IBAN
-      <input name="iban" type="text" (input)="iban.set($any($event.target).value)" />
-    </label>
-    <label>
-      SWIFT Code
-      <input name="swiftCode" type="text" (input)="swiftCode.set($any($event.target).value)" />
-    </label>
-    <label>
-      Amount
-      <input name="amount" type="text" (input)="extAmount.set($any($event.target).value)" />
-    </label>
-    <app-alert-banner type="error" [message]="validationError()" />
-    <app-alert-banner [type]="resultType()" [message]="resultMessage()" />
-    <app-button type="submit">Send</app-button>
-  </form>
-}
+  <div class="card">
+    @if (activeTab() === 'internal') {
+      <form class="stack" (submit)="submitInternal(); $event.preventDefault()">
+        <div class="select-group">
+          <label for="fromAccount">From Account</label>
+          <select id="fromAccount" (change)="onFromAccountChange($any($event.target).value)">
+            <option value="" selected>Select account</option>
+            @for (acc of accounts(); track acc.accountId) {
+              <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
+            }
+          </select>
+        </div>
+        <div class="select-group">
+          <label for="toAccount">To Account</label>
+          <select id="toAccount" (change)="onToAccountChange($any($event.target).value)">
+            <option value="" selected>Select account</option>
+            @for (acc of accounts(); track acc.accountId) {
+              <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
+            }
+          </select>
+        </div>
+        <app-input
+          id="amount"
+          label="Amount"
+          [ngModel]="amount()"
+          (ngModelChange)="amount.set($event)"
+          name="amount"
+        />
+        <app-alert-banner type="error" [message]="validationError()" />
+        <app-alert-banner [type]="resultType()" [message]="resultMessage()" />
+        <app-button type="submit">Send</app-button>
+      </form>
+    } @else {
+      <form class="stack" (submit)="submitExternal(); $event.preventDefault()">
+        <div class="select-group">
+          <label for="extFromAccount">From Account</label>
+          <select id="extFromAccount" (change)="onExtFromAccountChange($any($event.target).value)">
+            <option value="" selected>Select account</option>
+            @for (acc of accounts(); track acc.accountId) {
+              <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
+            }
+          </select>
+        </div>
+        <app-input
+          id="beneficiaryName"
+          label="Beneficiary Name"
+          [ngModel]="beneficiaryName()"
+          (ngModelChange)="beneficiaryName.set($event)"
+          name="beneficiaryName"
+        />
+        <app-input
+          id="iban"
+          label="IBAN"
+          [ngModel]="iban()"
+          (ngModelChange)="iban.set($event)"
+          name="iban"
+        />
+        <app-input
+          id="swiftCode"
+          label="SWIFT Code"
+          [ngModel]="swiftCode()"
+          (ngModelChange)="swiftCode.set($event)"
+          name="swiftCode"
+        />
+        <app-input
+          id="extAmount"
+          label="Amount"
+          [ngModel]="extAmount()"
+          (ngModelChange)="extAmount.set($event)"
+          name="amount"
+        />
+        <app-alert-banner type="error" [message]="validationError()" />
+        <app-alert-banner [type]="resultType()" [message]="resultMessage()" />
+        <app-button type="submit">Send</app-button>
+      </form>
+    }
+  </div>
+</div>

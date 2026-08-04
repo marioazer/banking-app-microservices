@@ -18,6 +18,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
       </div>
     }
   `,
+  styleUrl: './modal.component.css',
 })
 export class ModalComponent {
   @Input() open = false;

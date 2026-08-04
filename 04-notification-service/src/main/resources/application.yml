@@ -19,5 +19,13 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+# real SMS delivery for 2FA codes via Textbelt (https://textbelt.com) - disabled by default so
+# local dev never needs this (LoggingSmsProviderClient handles that case). Set SMS_ENABLED=true
+# in your own shell to actually send texts. The free "textbelt" key needs no signup/account at
+# all (1 text/day/IP) - only override sms.textbelt-key if you buy a paid key later.
+sms:
+  enabled: ${SMS_ENABLED:false}
+  textbelt-key: ${TEXTBELT_KEY:textbelt}
+
 server:
   port: 8085

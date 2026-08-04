@@ -8,6 +8,7 @@ import { Component, Input } from '@angular/core';
       <div class="alert" [class]="'alert alert-' + type" role="alert">{{ message }}</div>
     }
   `,
+  styleUrl: './alert-banner.component.css',
 })
 export class AlertBannerComponent {
   @Input() type: 'success' | 'error' | 'info' | 'warning' = 'info';
