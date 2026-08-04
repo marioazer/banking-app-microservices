@@ -20,6 +20,8 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Long> {
     // whole where clause from this name alone, no @Query needed for something this simple
     List<AccountEntity> findByUserIdAndStatusNot(Long userId, AccountStatus status);
 
+    boolean existsByUserId(Long userId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM AccountEntity a WHERE a.id = :id")
     Optional<AccountEntity> findByIdForUpdate(@Param("id") Long id);

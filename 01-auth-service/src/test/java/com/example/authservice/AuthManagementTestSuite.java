@@ -17,6 +17,7 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +29,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -43,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,6 +71,9 @@ class AuthManagementTestSuite {
 
     @Autowired
     private AuthSecurityService authSecurityService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @MockBean
     private AuthenticationManager authenticationManager;
@@ -351,6 +357,91 @@ class AuthManagementTestSuite {
                 .andExpect(content().string("{\"error\": \"Token has been revoked. Please log in again.\"}"));
 
         verify(blacklistedTokenRepository).existsById(jti);
+    }
+
+    // ==========================================
+    // Registration
+    // ==========================================
+
+    @Test
+    @DisplayName("Register: New Username Creates Account With Hashed Password - [MEANT TO PASS]")
+    void testRegister_NewUsername_CreatesAccount() throws Exception {
+        given(userRepository.existsByUsername("newuser")).willReturn(false);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"newuser\",\"password\":\"SecurePass123!\",\"phoneNumber\":\"+15551234567\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("SUCCESS"));
+
+        ArgumentCaptor<User> savedUser = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(savedUser.capture());
+        assertThat(savedUser.getValue().getUsername()).isEqualTo("newuser");
+        assertThat(savedUser.getValue().getPassword()).isNotEqualTo("SecurePass123!");
+        assertThat(passwordEncoder.matches("SecurePass123!", savedUser.getValue().getPassword())).isTrue();
+    }
+
+    // confirms registration publishes a UserRegistered event so profile-service/account-service
+    // can provision their own initial rows for this user - stubs save() to mimic Hibernate
+    // populating the generated id on the passed-in entity, since a plain mock wouldn't do that
+    @Test
+    @DisplayName("Register: New Username Publishes UserRegistered Event To Kafka - [MEANT TO PASS]")
+    void testRegister_NewUsername_PublishesUserRegisteredEvent() throws Exception {
+        given(userRepository.existsByUsername("newuser")).willReturn(false);
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(99L);
+            return saved;
+        });
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"newuser\",\"password\":\"SecurePass123!\",\"phoneNumber\":\"+15551234567\"}"))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(kafkaTemplate).send(eq("user-events"), payload.capture());
+        assertThat(payload.getValue()).contains("\"userId\":\"99\"");
+        assertThat(payload.getValue()).contains("\"username\":\"newuser\"");
+        assertThat(payload.getValue()).contains("\"phoneNumber\":\"+15551234567\"");
+    }
+
+    @Test
+    @DisplayName("Register: Duplicate Username Rejected With Conflict - [MEANT TO FAIL]")
+    void testRegister_DuplicateUsername_Rejected() throws Exception {
+        given(userRepository.existsByUsername("johndoe")).willReturn(true);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"johndoe\",\"password\":\"SecurePass123!\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Username is already taken"));
+
+        verify(kafkaTemplate, never()).send(eq("user-events"), any(String.class));
+    }
+
+    @Test
+    @DisplayName("Register: Missing Username Or Password Rejected - [MEANT TO FAIL]")
+    void testRegister_MissingFields_Rejected() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"newuser\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+
+        verify(kafkaTemplate, never()).send(eq("user-events"), any(String.class));
+    }
+
+    @Test
+    @DisplayName("Register: Short Password Rejected - [MEANT TO FAIL]")
+    void testRegister_ShortPassword_Rejected() throws Exception {
+        given(userRepository.existsByUsername("newuser")).willReturn(false);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"newuser\",\"password\":\"short\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
     }
 
     private String hashString(String input) {

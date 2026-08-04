@@ -1,0 +1,17 @@
+<app-nav />
+
+<select (change)="onFilterChange($any($event.target).value)">
+  <option value="ALL">All</option>
+  <option value="CREDIT">Credit</option>
+  <option value="DEBIT">Debit</option>
+</select>
+
+@if (transactions().length === 0) {
+  <p>No transactions found for this account.</p>
+} @else {
+  <app-table [columns]="columns" [rows]="transactions()" />
+
+  <app-button [disabled]="currentPage() === 0" (clicked)="goToPage(currentPage() - 1)">Prev</app-button>
+  <span>Page {{ currentPage() + 1 }} of {{ totalPages() }}</span>
+  <app-button [disabled]="currentPage() + 1 >= totalPages()" (clicked)="goToPage(currentPage() + 1)">Next</app-button>
+}

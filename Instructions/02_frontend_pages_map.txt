@@ -1,0 +1,86 @@
+FRONTEND PAGES MAP
+Proposed Angular routes, derived directly from the backend API surface in
+01_backend_api_specs.txt. Standalone components, no NgModules.
+
+===============================================================================
+ROUTES
+===============================================================================
+
+/signup
+  Purpose: self-service registration (added post-launch; not in the original
+  backend API spec pass - see below).
+  Calls: POST /api/v1/auth/register
+  Public route (no authGuard).
+  On success: navigate to /login?registered=true (shows a confirmation banner).
+  Note: publishes a "user-events" Kafka event on success, which
+  profile-service and account-service each consume to provision their own
+  initial row (PENDING_VERIFICATION profile, $0 CHECKING account) - see
+  01_backend_api_specs.txt.
+
+/login
+  Purpose: authenticate the user, handle the conditional 2FA step.
+  Calls: POST /api/v1/auth/login, POST /api/v1/auth/verify-2fa/sms
+  Public route (no authGuard).
+  On success: store access_token in memory, navigate to /dashboard.
+  Links to /signup. Shows a success banner when arriving from
+  /signup via the registered=true query param.
+
+/dashboard
+  Purpose: landing page after login - list of the user's accounts.
+  Calls: GET /api/v1/accounts
+  Protected by authGuard.
+  Each account row links to /accounts/:id/transactions.
+  Persistent nav present here and on every protected route: links to
+  Dashboard, Transfer, Profile, Alerts, Logout.
+
+/accounts/:id/transactions
+  Purpose: paginated transaction history for one account, filterable by type.
+  Calls: GET /api/v1/accounts/{accountId}/transactions?type=&page=&size=&sort=
+  Protected by authGuard.
+
+/transfer
+  Purpose: move money - two modes in one page (tabbed): internal
+  (account-to-account) and external (wire via IBAN/SWIFT).
+  Calls: POST /api/v1/transfers/internal, POST /api/v1/transfers/external
+  Protected by authGuard.
+  Must distinctly handle:
+    - 403 KYC-not-approved response (see 01_backend_api_specs.txt) -
+      show a "verify your identity" message, not a generic error.
+    - PENDING_APPROVAL transfer status - show "under review", not an error.
+    - COMPLETED - show success + resulting transactionId.
+
+/profile
+  Purpose: view/edit contact info, view (read-only) KYC status.
+  Calls: PUT /api/v1/profiles/me/contact-info, GET /api/v1/profiles/{userId}/kyc-status
+  Protected by authGuard.
+
+/profile/alerts
+  Purpose: manage alert threshold and daily summary preferences.
+  Calls: GET /api/v1/profile/alerts/{userId}, PUT /api/v1/profile/alerts/threshold,
+  PUT /api/v1/profile/alerts/daily-summary
+  Protected by authGuard.
+
+===============================================================================
+CROSS-CUTTING CONCERNS
+===============================================================================
+
+authGuard (core/auth.guard.ts)
+  Blocks access to any protected route if no valid access token is held in
+  memory; redirects to /login. Runs on every route except /login.
+
+jwtInterceptor (core/jwt.interceptor.ts)
+  Attaches "Authorization: Bearer <access_token>" to every outgoing request
+  to the 4 backend APIs. On a 401 response, attempts a single silent
+  POST /api/v1/auth/refresh (withCredentials so the Refresh-Token cookie is
+  sent), retries the original request once with the new token, and if that
+  also fails, clears state and redirects to /login.
+
+errorInterceptor or shared error handling
+  Surfaces backend error bodies consistently. Must special-case:
+    - 403 with the KYC message on transfer endpoints (see /transfer above)
+    - Generic 4xx/5xx -> shared alert-banner component
+
+Not in scope (confirmed no backend support):
+  - No password-reset flow (no such endpoint exists).
+  - No admin/compliance UI (KYC override endpoint requires roles that don't
+    exist in the system yet).

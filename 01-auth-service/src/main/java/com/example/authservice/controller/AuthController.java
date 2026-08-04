@@ -14,6 +14,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,19 +44,57 @@ public class AuthController {
     private final AuthSecurityService authSecurityService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // learned spring does not need an @Autowired annotation here since there is only one
-    // constructor, it just automatically injects all four dependencies through this one
+    // constructor, it just automatically injects all five dependencies through this one
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           AuthSecurityService authSecurityService,
                           RefreshTokenRepository refreshTokenRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          PasswordEncoder passwordEncoder) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.authSecurityService = authSecurityService;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    // ==========================================
+    // 0. Registration
+    // ==========================================
+
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String password = request.get("password");
+        String phoneNumber = request.get("phoneNumber");
+
+        if (username == null || username.isBlank() || password == null || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Username and password are required"));
+        }
+        if (password.length() < MIN_PASSWORD_LENGTH) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Password must be at least " + MIN_PASSWORD_LENGTH + " characters"));
+        }
+        if (userRepository.existsByUsername(username)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Username is already taken"));
+        }
+
+        User newUser = new User();
+        newUser.setUsername(username);
+        newUser.setPassword(passwordEncoder.encode(password));
+        newUser.setPhoneNumber(phoneNumber);
+        newUser.setTotpEnabled(false);
+        userRepository.save(newUser);
+        authSecurityService.publishUserRegisteredEvent(newUser.getId(), newUser.getUsername(), newUser.getPhoneNumber());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of("status", "SUCCESS", "message", "Account created successfully"));
     }
 
     // ==========================================

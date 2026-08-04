@@ -1,6 +1,4 @@
-# local dev profile, same shared docker-compose postgres as the rest of the services
-# no kafka block here since account-service does not publish or consume any events, it only
-# serves the dashboard and transaction history reads
+# local dev profile, same shared docker-compose postgres and kafka as the rest of the services
 spring:
   application:
     name: 03-account-service
@@ -9,6 +7,11 @@ spring:
     username: dbadmin
     password: localdevpassword
     driver-class-name: org.postgresql.Driver
+  kafka:
+    # consumes "user-events" (published by auth-service on registration) to provision a starter
+    # account for a brand-new user - see UserRegisteredListener. No producer here, account-service
+    # never publishes anything of its own.
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   jpa:
     hibernate:
       ddl-auto: update

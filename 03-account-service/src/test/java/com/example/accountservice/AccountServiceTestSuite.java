@@ -10,6 +10,7 @@ import com.example.accountservice.model.TransactionType;
 import com.example.accountservice.repository.AccountRepository;
 import com.example.accountservice.repository.TransactionRepository;
 import com.example.accountservice.service.AccountService;
+import com.example.accountservice.service.UserRegisteredListener;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,11 +26,15 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -46,6 +51,9 @@ class AccountServiceTestSuite {
 
     @Autowired
     private AccountMapper accountMapper;
+
+    @Autowired
+    private UserRegisteredListener userRegisteredListener;
 
     @MockBean
     private AccountRepository accountRepository;
@@ -301,6 +309,39 @@ class AccountServiceTestSuite {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andExpect(jsonPath("$.number").value(0));
+    }
+
+    // ==========================================
+    // UserRegisteredListener (provisions a starter account for a brand-new auth-service user)
+    // ==========================================
+
+    @Test
+    @DisplayName("UserRegistered event creates a $0 ACTIVE CHECKING account for a new user id - [MEANT TO PASS]")
+    void testUserRegisteredListener_NewUser_CreatesStarterCheckingAccount() {
+        given(accountRepository.existsByUserId(777L)).willReturn(false);
+        Map<String, Object> event = Map.of("userId", "777", "username", "newuser", "phoneNumber", "+15550001111");
+
+        userRegisteredListener.consumeUserRegistered(event);
+
+        verify(accountRepository).save(argThat(account ->
+                account.getUserId().equals(777L)
+                        && account.getAccountType() == AccountType.CHECKING
+                        && account.getAvailableBalance().compareTo(BigDecimal.ZERO) == 0
+                        && account.getStatus() == AccountStatus.ACTIVE
+                        && account.getRoutingNumber() != null
+                        && account.getAccountNumber() != null
+        ));
+    }
+
+    @Test
+    @DisplayName("UserRegistered event is a no-op if the user already has an account - [MEANT TO PASS]")
+    void testUserRegisteredListener_ExistingUser_DoesNotCreateDuplicateAccount() {
+        given(accountRepository.existsByUserId(777L)).willReturn(true);
+        Map<String, Object> event = Map.of("userId", "777", "username", "newuser", "phoneNumber", "+15550001111");
+
+        userRegisteredListener.consumeUserRegistered(event);
+
+        verify(accountRepository, never()).save(any(AccountEntity.class));
     }
 
     private TransactionEntity buildTransaction(Long accountId, TransactionType type, BigDecimal amount) {

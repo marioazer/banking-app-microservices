@@ -1,0 +1,36 @@
+<app-nav />
+
+<p>KYC Status: {{ kycStatus() }}</p>
+@if (kycStatus() && kycStatus() !== 'APPROVED') {
+  <p>Your identity has not been verified yet. Please verify your identity to enable transfers.</p>
+}
+
+<form (submit)="submit(); $event.preventDefault()">
+  <label>
+    Phone Number
+    <input name="phoneNumber" type="text" (input)="phoneNumber.set($any($event.target).value)" />
+  </label>
+  <label>
+    Address Line 1
+    <input name="addressLine1" type="text" (input)="addressLine1.set($any($event.target).value)" />
+  </label>
+  <label>
+    Address Line 2
+    <input name="addressLine2" type="text" (input)="addressLine2.set($any($event.target).value)" />
+  </label>
+  <label>
+    City
+    <input name="city" type="text" (input)="city.set($any($event.target).value)" />
+  </label>
+  <label>
+    State
+    <input name="state" type="text" (input)="state.set($any($event.target).value)" />
+  </label>
+  <label>
+    Zip Code
+    <input name="zipCode" type="text" (input)="zipCode.set($any($event.target).value)" />
+  </label>
+  <app-alert-banner type="error" [message]="validationError()" />
+  <app-alert-banner [type]="saveMessageType()" [message]="saveMessage()" />
+  <app-button type="submit">Save</app-button>
+</form>

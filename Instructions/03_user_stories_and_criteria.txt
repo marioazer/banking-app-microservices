@@ -1,0 +1,161 @@
+USER STORIES AND ACCEPTANCE CRITERIA
+One story block per page defined in 02_frontend_pages_map.txt.
+
+===============================================================================
+SIGN UP (/signup)
+===============================================================================
+
+As a prospective customer, I want to create an account with a username,
+password, and phone number so that I can log in to the bank.
+
+Acceptance Criteria:
+- Given a username that isn't taken and a password of at least 8 characters,
+  when I submit the form, then my account is created and I'm redirected to
+  /login with a confirmation banner.
+- Given a username that's already taken, when I submit, then I see an inline
+  error and remain on /signup.
+- Given a password under 8 characters, then I see inline validation before
+  the request is sent.
+- Given the password and confirm-password fields don't match, then I see
+  inline validation before the request is sent.
+
+===============================================================================
+LOGIN (/login)
+===============================================================================
+
+As a registered banking customer, I want to log in with my username and
+password so that I can access my accounts.
+
+Acceptance Criteria:
+- Given valid credentials and a recognized device, when I submit the login
+  form, then I am redirected to /dashboard with an active session.
+- Given valid credentials and an unrecognized device, when I submit the
+  login form, then I am shown a 2FA code entry screen instead of being
+  logged in immediately.
+- Given an incorrect username or password, when I submit the form, then I
+  see an inline error and remain on /login.
+- Given the login request fails (network/5xx), then I see a generic error
+  banner and can retry.
+
+As a customer prompted for 2FA, I want to enter the SMS code I received so
+that I can complete login on a new device.
+
+Acceptance Criteria:
+- Given a valid pre-auth token and correct code, when I submit, then I am
+  logged in, redirected to /dashboard, and this device is remembered for
+  future logins.
+- Given an incorrect code, when I submit, then I see an inline error and
+  can retry without restarting the login flow.
+- Given the pre-auth token has expired (>5 minutes), then I am returned to
+  /login with a message to log in again.
+
+===============================================================================
+DASHBOARD (/dashboard)
+===============================================================================
+
+As a logged-in customer, I want to see all of my accounts and their
+balances so that I know my current financial position at a glance.
+
+Acceptance Criteria:
+- Given I have one or more accounts, when I visit /dashboard, then I see
+  each account's type, masked account number, status, and available
+  balance.
+- Given an account has status FROZEN or CLOSED, then that is visibly
+  indicated (not just balance shown, status is distinguishable at a
+  glance).
+- Given I click an account, then I am taken to that account's transaction
+  history.
+- Given the accounts request fails, then I see an error state with a retry
+  option rather than a blank page.
+
+===============================================================================
+ACCOUNT TRANSACTIONS (/accounts/:id/transactions)
+===============================================================================
+
+As a customer, I want to view the transaction history for one of my
+accounts so that I can review my activity.
+
+Acceptance Criteria:
+- Given I open an account's transaction page, then I see a paginated list
+  of transactions sorted newest-first, showing type, amount, description,
+  and date.
+- Given I filter by type (credit/debit), then only matching transactions
+  are shown.
+- Given there are more transactions than fit one page, then I can navigate
+  to subsequent pages.
+- Given the account has no transactions, then I see an empty state, not an
+  error.
+
+===============================================================================
+TRANSFER (/transfer)
+===============================================================================
+
+As a customer, I want to transfer money between my own accounts so that I
+can manage my funds.
+
+Acceptance Criteria:
+- Given two of my own accounts and a valid amount, when I submit an
+  internal transfer, then I see a success confirmation with the resulting
+  transaction id and status.
+- Given my KYC status is not APPROVED, when I attempt any transfer, then I
+  see a clear "identity verification required" message instead of a
+  generic error, and the form does not silently fail.
+- Given invalid input (e.g. non-positive amount), then I see inline
+  validation before the request is even sent.
+
+As a customer, I want to send an external wire transfer so that I can pay
+someone outside the bank.
+
+Acceptance Criteria:
+- Given a valid IBAN, SWIFT code, beneficiary name, and amount, when I
+  submit, then I see a success confirmation.
+- Given the transfer amount is large enough to trigger fraud review, then
+  I see a distinct "your transfer is under review" state (status
+  PENDING_APPROVAL), not an error.
+- Given an invalid IBAN/SWIFT format, then I see inline validation before
+  submission.
+
+===============================================================================
+PROFILE (/profile)
+===============================================================================
+
+As a customer, I want to update my contact information so that the bank
+has my current details.
+
+Acceptance Criteria:
+- Given valid phone number (E.164) and address fields, when I submit, then
+  I see a save confirmation.
+- Given an invalid phone number format, then I see inline validation before
+  submission.
+
+As a customer, I want to see my current KYC (identity verification) status
+so that I understand whether transfers are available to me.
+
+Acceptance Criteria:
+- Given my status is PENDING_VERIFICATION, APPROVED, or REJECTED, then this
+  is shown clearly on my profile page (e.g. a status badge).
+- Given my status is not APPROVED, then the profile page links or points to
+  what to do next (informational only - no self-service KYC submission
+  endpoint exists yet).
+
+===============================================================================
+ALERT PREFERENCES (/profile/alerts)
+===============================================================================
+
+As a customer, I want to set a balance alert threshold so that I'm notified
+of large transactions.
+
+Acceptance Criteria:
+- Given a positive amount, when I save, then I see a confirmation and the
+  new threshold is reflected on reload.
+- Given a non-positive or missing amount, then inline validation blocks
+  submission.
+
+As a customer, I want to enable/disable a daily balance summary and set my
+timezone so that I get the summary at a relevant time.
+
+Acceptance Criteria:
+- Given I toggle daily summary on and pick a timezone, when I save, then I
+  see a confirmation and the settings persist on reload.
+- Given daily summary is off, then the timezone field is not required to
+  submit.

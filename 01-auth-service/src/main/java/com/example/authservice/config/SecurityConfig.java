@@ -8,6 +8,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 import com.example.authservice.security.JwtAuthenticationFilter;
 
@@ -34,11 +39,16 @@ public class SecurityConfig {
             // learned csrf protection exists for cookie based browser sessions, a jwt bearer
             // token api like this one is not vulnerable the same way so it is safe to turn off here
             .csrf(csrf -> csrf.disable())
-            
+
+            // Allow the Angular dev server (and later, its deployed origin) to call this API
+            // cross-origin, including sending the httpOnly Device-ID/Refresh-Token cookies.
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
             // 2. Configure endpoint routing rules
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints that do not require an Access Token
                 .requestMatchers("/api/v1/auth/login").permitAll()
+                .requestMatchers("/api/v1/auth/register").permitAll()
                 .requestMatchers("/api/v1/auth/verify-2fa/**").permitAll()
                 .requestMatchers("/api/v1/auth/refresh").permitAll()
                 // Swagger/OpenAPI UI - documentation, not application data
@@ -63,5 +73,17 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

@@ -1,0 +1,264 @@
+BACKEND API SPECS FOR FRONTEND INTEGRATION
+Generated from live inspection of the Spring Boot microservices in this repo.
+
+SCOPE
+Only 4 of the 6 microservices expose REST APIs. These are the only ones the
+frontend will ever call directly.
+
+  auth-service          port 8081 (local)   base path /api/v1/auth
+  profile-service        port 8082 (local)   base path /api/v1
+  account-service        port 8083 (local)   base path /api/v1/accounts
+  transaction-service     port 8084 (local)   base path /api/v1/transfers
+
+  notification-service    port 8085 - Kafka consumer only, NO REST API
+  audit-service           port 8086 - Kafka consumer only, NO REST API
+
+Local dev: docker-compose up -d (Postgres/Kafka/Redis), then run each of the
+4 services above individually via mvnw spring-boot:run. Each binds its own
+port on localhost. Swagger UI available at localhost:<port>/swagger-ui.html
+on all 4 REST-facing services.
+
+No CORS is configured on any backend service yet. This must be added
+(Phase 2 of the frontend plan) before the Angular dev server on
+localhost:4200 can call any of these APIs directly.
+
+===============================================================================
+AUTHENTICATION MODEL (applies to every endpoint below unless noted)
+===============================================================================
+
+JWT, HS256, shared secret across all 4 services (auth-service issues, the
+other 3 validate independently via Spring's OAuth2 Resource Server /
+NimbusJwtDecoder - no callback to auth-service on each request).
+
+Token claims:
+  sub        username
+  jti        UUID (used for logout/blacklist)
+  token_type PRE_AUTH | FULL_AUTH
+  scope      "FULL_AUTH" (only present on full tokens; downstream services
+             read this as authority SCOPE_FULL_AUTH)
+  userId     numeric user id
+
+  FULL_AUTH access token expires in 15 minutes.
+  PRE_AUTH token expires in 5 minutes and is ONLY valid against
+  /api/v1/auth/verify-2fa/*.
+
+Every protected endpoint requires header:
+  Authorization: Bearer <access_token>
+
+Cookies (set by the browser automatically, httpOnly + secure - frontend
+never reads or writes these directly, just needs credentials included):
+  Device-ID       1 year, set after successful 2FA verification
+  Refresh-Token   24 hours, set after login/2FA success
+
+UPDATE: a self-registration endpoint (POST /api/v1/auth/register, see below)
+was added after this doc was first written. On success it publishes a
+"user-events" Kafka event (userId, username, phoneNumber) that
+profile-service and account-service each consume independently to
+provision their own initial row for the new user - a PENDING_VERIFICATION
+profile and a $0 CHECKING account - so a freshly-registered user has a
+working (if minimal) dashboard and KYC status immediately, no manual
+seeding required. If Kafka is down at registration time, the user ends up
+with credentials but no profile/account until manually backfilled (no
+dead-letter/retry queue yet, just a logged error on the consumer side).
+
+===============================================================================
+1. AUTH SERVICE - base path /api/v1/auth
+===============================================================================
+
+POST /api/v1/auth/login
+  Public (no auth header required)
+  Request body: { "username": string, "password": string }
+  Optional cookie sent automatically: Device-ID
+  Response 200 (device recognized):
+    { "status": "SUCCESS", "access_token": string }
+    + Set-Cookie: Refresh-Token
+  Response 202 (device not recognized, 2FA required):
+    { "status": "2FA_REQUIRED", "pre_auth_token": string }
+
+POST /api/v1/auth/verify-2fa/sms
+  Requires header: Authorization: Bearer <pre_auth_token>
+  Request body: { "code": string }
+  Response 200:
+    { "status": "SUCCESS", "access_token": string }
+    + Set-Cookie: Device-ID
+    + Set-Cookie: Refresh-Token
+
+POST /api/v1/auth/register
+  Public (no auth header required)
+  Request body: { "username": string, "password": string (min 8 chars), "phoneNumber": string }
+  Response 201: { "status": "SUCCESS", "message": string }
+  Response 400: { "error": string } (missing fields or password too short)
+  Response 409: { "error": "Username is already taken" }
+
+POST /api/v1/auth/refresh
+  Requires cookie: Refresh-Token (sent automatically, use
+  withCredentials/credentials:'include' on this call)
+  No request body
+  Response 200: { "access_token": string }
+
+POST /api/v1/auth/logout
+  Requires header: Authorization: Bearer <access_token>
+  No request body
+  Response 200, clears Refresh-Token cookie
+
+NOTE: all auth-service responses are raw Map<String,String> / ResponseEntity<?>
+- there are no formal DTO classes on the Java side, so the frontend must
+hand-type these response shapes exactly as documented above.
+
+===============================================================================
+2. PROFILE SERVICE - base path /api/v1
+===============================================================================
+
+PUT /api/v1/profiles/me/contact-info
+  Requires: Authorization: Bearer <FULL_AUTH token> (userId read from JWT claim)
+  Request body (UpdateContactInfoRequestDto):
+    {
+      "phoneNumber": string,   // E.164 format, e.g. +15551234567
+      "addressLine1": string,
+      "addressLine2": string,  // optional
+      "city": string,
+      "state": string,
+      "zipCode": string
+    }
+  Response 200, no body documented (assume empty/204-style success)
+
+GET /api/v1/profiles/{userId}/kyc-status
+  Public endpoint (permitAll at security layer) - but frontend should still
+  only call this for the logged-in user's own id
+  Response: KYC status string - one of PENDING_VERIFICATION | APPROVED | REJECTED
+
+POST /api/v1/webhooks/kyc-update
+  Vendor webhook, NOT used by the frontend. Requires HMAC header X-Signature.
+  Documented here only for completeness.
+
+PATCH /api/v1/admin/profiles/{userId}/kyc
+  Requires role ADMIN or COMPLIANCE_OFFICER - NOT reachable in practice since
+  no role-granting mechanism exists yet in this system. NOT part of the
+  frontend scope.
+
+--- Alert Preferences (PreferenceController) - base path /api/v1/profile/alerts ---
+KNOWN GAP: this path is NOT covered by k8s/08-ingress-routes.yaml (ingress
+only routes /api/v1/profiles, plural - this is /api/v1/profile/alerts,
+singular). Irrelevant for local dev against localhost:8082 directly, but
+will break if this is ever deployed behind the cluster ingress unchanged.
+
+PUT /api/v1/profile/alerts/threshold
+  Requires: Authorization: Bearer <FULL_AUTH token>
+  Request body (UpdateAlertThresholdRequestDto):
+    { "alertThresholdAmount": number }   // positive, minimum 0.01
+
+PUT /api/v1/profile/alerts/daily-summary
+  Requires: Authorization: Bearer <FULL_AUTH token>
+  Request body (UpdateDailySummaryRequestDto):
+    { "dailySummaryEnabled": boolean, "timezone": string }  // IANA tz name
+
+GET /api/v1/profile/alerts/{userId}
+  Public (permitAll)
+  Response (UserPreferenceResponse):
+    {
+      "userId": number,
+      "alertThresholdAmount": number,
+      "dailySummaryEnabled": boolean,
+      "timezone": string
+    }
+
+GET /api/v1/profile/alerts/daily-summary-users?timezone={timezone}
+  Public (permitAll) - not used by the customer-facing frontend, admin/batch
+  use only.
+
+===============================================================================
+3. ACCOUNT SERVICE - base path /api/v1/accounts
+===============================================================================
+All customer-facing endpoints require: Authorization: Bearer <FULL_AUTH token>
+
+GET /api/v1/accounts
+  userId read from JWT claim
+  Response 200: AccountOverviewResponseDto[]
+    [
+      {
+        "accountId": number,
+        "accountType": "CHECKING" | "SAVINGS",
+        "availableBalance": number,
+        "routingNumber": string,
+        "maskedAccountNumber": string,
+        "status": "ACTIVE" | "FROZEN" | "CLOSED"
+      }
+    ]
+
+GET /api/v1/accounts/{accountId}/transactions
+  Path param: accountId
+  Query params (optional): type = CREDIT | DEBIT
+  Query params (Spring Pageable): page, size (default 50), sort
+    (default createdAt,desc)
+  Response 200: standard Spring Page<TransactionEntity> JSON:
+    {
+      "content": [
+        {
+          "id": number,
+          "accountId": number,
+          "transactionType": "CREDIT" | "DEBIT",
+          "amount": number,
+          "description": string,
+          "createdAt": string (ISO datetime)
+        }
+      ],
+      "totalPages": number,
+      "totalElements": number,
+      "number": number,       // current page index, 0-based
+      "size": number,
+      ...standard Spring Page fields
+    }
+
+NOTE: /api/v1/internal/** and /api/v1/accounts/balances/batch on this
+service are service-to-service only (not routed through the ingress) -
+NOT part of the frontend scope.
+
+===============================================================================
+4. TRANSACTION SERVICE - base path /api/v1/transfers
+===============================================================================
+Requires: Authorization: Bearer <FULL_AUTH token>
+
+Both endpoints below are KYC-gated: the backend calls profile-service's
+GET /api/v1/profiles/{userId}/kyc-status synchronously before allowing the
+transfer. If status is not APPROVED, the response is:
+  403 Forbidden
+  { "error": "Action forbidden: KYC verification is <STATUS>..." }
+The frontend must surface this distinctly from a generic error (e.g. "Verify
+your identity to enable transfers" rather than a raw error toast).
+
+POST /api/v1/transfers/internal
+  Request body (InternalTransferRequestDto):
+    { "fromAccountId": number, "toAccountId": number, "amount": number }
+  Response 200 (TransferResponseDto):
+    { "transactionId": string (UUID), "status": string }
+
+POST /api/v1/transfers/external?fromAccountId={accountId}
+  Query param: fromAccountId
+  Request body (ExternalWireRequestDto):
+    {
+      "iban": string,          // validated format
+      "swiftCode": string,     // validated format
+      "beneficiaryName": string,  // max 100 chars
+      "amount": number         // positive, minimum 0.01
+    }
+  Response 200 (TransferResponseDto):
+    { "transactionId": string (UUID), "status": string }
+
+  Possible status values (TransactionStatus enum): COMPLETED,
+  PENDING_APPROVAL (large transfers held for manual fraud review),
+  REJECTED, FAILED. The frontend should treat PENDING_APPROVAL as a
+  distinct, non-error outcome ("Your transfer is under review").
+
+NOTE: /api/v1/internal/transfers/{transactionId}/fraud-status is
+service-to-service/ops only - NOT part of the frontend scope.
+
+===============================================================================
+SERVICES WITH NO REST API (documented for completeness, not for the frontend)
+===============================================================================
+
+notification-service (8085): pure Kafka consumer, sends email/SMS
+notifications on transfer/profile events. Also runs a scheduled daily
+balance summary job. No endpoints to call.
+
+audit-service (8086): pure Kafka consumer, writes an immutable audit log.
+No endpoints to call.

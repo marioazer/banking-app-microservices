@@ -1,0 +1,168 @@
+ARCHITECTURE AND TEXT WIREFRAMES
+Standalone Angular components (no NgModules). Jasmine + Karma for unit
+tests. Plain CSS (no Sass/Tailwind), per project instructions.
+
+===============================================================================
+COMPONENT TREE / FOLDER STRUCTURE
+===============================================================================
+
+frontend/src/app/
+  core/
+    auth.service.ts         login/verify-2fa/refresh/logout, holds access
+                             token in memory (a signal), exposes isLoggedIn
+    auth.guard.ts            functional route guard, uses auth.service
+    jwt.interceptor.ts       functional HttpInterceptor, attaches
+                             Authorization header, handles 401 -> refresh ->
+                             retry-once -> logout-on-failure
+    error.interceptor.ts     normalizes backend error bodies into a shared
+                             shape the UI can render (incl. the KYC 403
+                             special case for transfer endpoints)
+    models/
+      auth.models.ts         LoginRequest, LoginResponse, TwoFaRequest, etc.
+      account.models.ts      AccountOverview, TransactionEntity, Page<T>
+      profile.models.ts      ContactInfo, KycStatus, UserPreference
+      transfer.models.ts     InternalTransferRequest, ExternalWireRequest,
+                             TransferResponse
+    services/
+      account.service.ts     wraps GET /api/v1/accounts,
+                             GET /api/v1/accounts/{id}/transactions
+      profile.service.ts     wraps profile + preferences endpoints
+      transfer.service.ts    wraps internal/external transfer endpoints
+
+  shared/                    dumb, reusable, presentation-only components
+    button/
+    input/
+    table/
+    modal/
+    alert-banner/            renders success/error/info messages, used for
+                             the KYC-blocked and pending-review states
+
+  features/
+    signup/
+      signup.component.ts/html/spec.ts             (added post-launch)
+    login/
+      login.component.ts/html/css/spec.ts
+      two-factor.component.ts/html/css/spec.ts     (child step of login)
+    dashboard/
+      dashboard.component.ts/html/css/spec.ts
+    account-transactions/
+      account-transactions.component.ts/html/css/spec.ts
+    transfer/
+      transfer.component.ts/html/css/spec.ts        (tabbed container)
+      internal-transfer-form.component.ts/html/css/spec.ts
+      external-transfer-form.component.ts/html/css/spec.ts
+    profile/
+      profile.component.ts/html/css/spec.ts
+    alert-preferences/
+      alert-preferences.component.ts/html/css/spec.ts
+
+  app.routes.ts               route table, authGuard applied to every route
+                             except /login
+  app.config.ts               providers: HttpClient with jwtInterceptor +
+                             error.interceptor, router
+
+===============================================================================
+TEXT WIREFRAMES
+===============================================================================
+
+--- /login ---
++--------------------------------------------------+
+|                   Bank Logo/Name                  |
+|                                                    |
+|   Username [______________________]               |
+|   Password [______________________]               |
+|                                                    |
+|              [        Log In        ]             |
+|                                                    |
+|   (inline error message area)                     |
++--------------------------------------------------+
+
+--- /login (2FA step, replaces form above) ---
++--------------------------------------------------+
+|          Enter the code sent to your phone         |
+|                                                    |
+|   Code [______]                                   |
+|                                                    |
+|              [       Verify       ]                |
+|   (inline error message area)                     |
++--------------------------------------------------+
+
+--- /dashboard ---
++--------------------------------------------------+
+| NAV: Dashboard | Transfer | Profile | Alerts | Logout |
++--------------------------------------------------+
+|  Your Accounts                                    |
+|  +----------------------------------------------+ |
+|  | Checking  ****1234   ACTIVE      $1,204.55  > | |
+|  +----------------------------------------------+ |
+|  | Savings   ****5678   ACTIVE      $9,003.10  > | |
+|  +----------------------------------------------+ |
+|  | Checking  ****9012   FROZEN         $0.00   > | |
+|  +----------------------------------------------+ |
++--------------------------------------------------+
+
+--- /accounts/:id/transactions ---
++--------------------------------------------------+
+| NAV: ...                                          |
++--------------------------------------------------+
+|  Checking ****1234                Filter: [All v] |
+|                                                    |
+|  Date        Type    Description         Amount   |
+|  2026-08-01  DEBIT   Coffee Shop        -$4.50    |
+|  2026-07-31  CREDIT  Payroll          +$2,000.00  |
+|  ...                                               |
+|                                                    |
+|         [ < Prev ]   Page 1 of 4   [ Next > ]      |
++--------------------------------------------------+
+
+--- /transfer ---
++--------------------------------------------------+
+| NAV: ...                                          |
++--------------------------------------------------+
+|  [ Internal Transfer ] [ External Wire ]  <- tabs  |
+|                                                    |
+|  From Account [ Checking ****1234        v]        |
+|  To Account   [ Savings  ****5678        v]        |
+|  Amount       [ $__________ ]                     |
+|                                                    |
+|              [        Send        ]                |
+|                                                    |
+|  (result banner: success / KYC-required / pending) |
++--------------------------------------------------+
+
+--- /transfer (External Wire tab) ---
++--------------------------------------------------+
+|  From Account   [ Checking ****1234       v]       |
+|  Beneficiary    [_____________________]           |
+|  IBAN           [_____________________]           |
+|  SWIFT Code     [_____________]                   |
+|  Amount         [ $__________ ]                   |
+|                                                    |
+|              [        Send        ]                |
+|  (result banner: success / KYC-required / pending) |
++--------------------------------------------------+
+
+--- /profile ---
++--------------------------------------------------+
+| NAV: ...                                          |
++--------------------------------------------------+
+|  KYC Status:  [ PENDING VERIFICATION ]  (badge)    |
+|                                                    |
+|  Phone        [______________________]            |
+|  Address 1    [______________________]            |
+|  Address 2    [______________________]            |
+|  City         [__________]  State [__] Zip [_____]|
+|                                                    |
+|              [        Save        ]                |
++--------------------------------------------------+
+
+--- /profile/alerts ---
++--------------------------------------------------+
+| NAV: ...                                          |
++--------------------------------------------------+
+|  Alert Threshold   [ $__________ ]  [ Save ]       |
+|                                                    |
+|  Daily Summary  ( ) On  (o) Off                    |
+|  Timezone       [ America/New_York        v]       |
+|                                    [ Save ]         |
++--------------------------------------------------+

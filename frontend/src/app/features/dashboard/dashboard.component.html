@@ -1,0 +1,8 @@
+<app-nav />
+
+@if (error()) {
+  <p>Unable to load your accounts.</p>
+  <app-button (clicked)="loadAccounts()">Retry</app-button>
+} @else {
+  <app-table [columns]="columns" [rows]="accounts()" (rowClick)="onRowClick($event)" />
+}

@@ -13,6 +13,7 @@ import com.example.profileservice.repository.UserProfileRepository;
 import com.example.profileservice.service.ProfileManagementService;
 import com.example.profileservice.service.ProfileManagementService.KycStatusUpdatedEvent;
 import com.example.profileservice.service.ProfileManagementService.ProfileUpdatedEvent;
+import com.example.profileservice.service.UserRegisteredListener;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -70,6 +71,9 @@ class ProfileServiceTestSuite {
 
     @Autowired
     private ProfileManagementService profileManagementService;
+
+    @Autowired
+    private UserRegisteredListener userRegisteredListener;
 
     @MockBean
     private UserProfileRepository userProfileRepository;
@@ -558,6 +562,44 @@ class ProfileServiceTestSuite {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].userId").value(200));
+    }
+
+    // ==========================================
+    // UserRegisteredListener (provisions a profile for a brand-new auth-service user)
+    // ==========================================
+
+    @Test
+    @DisplayName("UserRegistered event creates a PENDING_VERIFICATION profile for a new user id - [MEANT TO PASS]")
+    void testUserRegisteredListener_NewUser_CreatesPendingProfile() {
+        given(userProfileRepository.existsById(500L)).willReturn(false);
+        Map<String, Object> event = Map.of(
+                "userId", "500",
+                "username", "newuser",
+                "phoneNumber", "+15559876543"
+        );
+
+        userRegisteredListener.consumeUserRegistered(event);
+
+        verify(userProfileRepository).save(argThat(profile ->
+                profile.getId().equals(500L)
+                        && profile.getPhoneNumber().equals("+15559876543")
+                        && profile.getKycStatus() == KycStatus.PENDING_VERIFICATION
+        ));
+    }
+
+    @Test
+    @DisplayName("UserRegistered event is a no-op if a profile already exists for that id - [MEANT TO PASS]")
+    void testUserRegisteredListener_ExistingUser_DoesNotOverwriteProfile() {
+        given(userProfileRepository.existsById(500L)).willReturn(true);
+        Map<String, Object> event = Map.of(
+                "userId", "500",
+                "username", "newuser",
+                "phoneNumber", "+15559876543"
+        );
+
+        userRegisteredListener.consumeUserRegistered(event);
+
+        verify(userProfileRepository, never()).save(any(UserProfile.class));
     }
 
     private String calculateHmac(String data, String key) {

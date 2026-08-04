@@ -138,6 +138,26 @@ public class AuthSecurityService {
     }
 
     // ==========================================
+    // 2b. Registration Provisioning Fan-out
+    // ==========================================
+
+    // profile-service and account-service each own their own slice of "user" data (KYC/contact
+    // info, accounts) and provision it themselves by consuming this event - auth-service only
+    // owns credentials, so this is the only way those other services learn a new user exists.
+    public void publishUserRegisteredEvent(Long userId, String username, String phoneNumber) {
+        try {
+            Map<String, String> event = new HashMap<>();
+            event.put("userId", String.valueOf(userId));
+            event.put("username", username);
+            event.put("phoneNumber", phoneNumber);
+
+            kafkaTemplate.send("user-events", objectMapper.writeValueAsString(event));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to publish user registered event to Kafka", e);
+        }
+    }
+
+    // ==========================================
     // 3. Session Revocation & Blacklisting
     // ==========================================
 
