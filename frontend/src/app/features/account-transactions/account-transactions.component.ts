@@ -6,14 +6,16 @@ import { AccountTransaction, TransactionType } from '../../core/models/account.m
 import { TableColumn, TableComponent } from '../../shared/table/table.component';
 import { ButtonComponent } from '../../shared/button/button.component';
 import { NavComponent } from '../../shared/nav/nav.component';
+import { AlertBannerComponent } from '../../shared/alert-banner/alert-banner.component';
 
 type TypeFilter = 'ALL' | TransactionType;
 
 @Component({
   selector: 'app-account-transactions',
   standalone: true,
-  imports: [TableComponent, ButtonComponent, NavComponent],
+  imports: [TableComponent, ButtonComponent, NavComponent, AlertBannerComponent],
   templateUrl: './account-transactions.component.html',
+  styleUrl: './account-transactions.component.css',
 })
 export class AccountTransactionsComponent implements OnInit {
   readonly columns: TableColumn[] = [
@@ -27,6 +29,9 @@ export class AccountTransactionsComponent implements OnInit {
   readonly currentPage = signal(0);
   readonly totalPages = signal(0);
   readonly typeFilter = signal<TypeFilter>('ALL');
+
+  readonly seedMessage = signal<string | null>(null);
+  readonly seedMessageType = signal<'success' | 'error'>('success');
 
   private accountId!: number;
 
@@ -47,6 +52,22 @@ export class AccountTransactionsComponent implements OnInit {
 
   goToPage(page: number): void {
     this.loadPage(page);
+  }
+
+  generateDemoTransactions(): void {
+    this.seedMessage.set(null);
+
+    this.accountService.seedDemoTransactions(this.accountId).subscribe({
+      next: () => {
+        this.seedMessageType.set('success');
+        this.seedMessage.set('Demo transaction history generated.');
+        this.loadPage(0);
+      },
+      error: () => {
+        this.seedMessageType.set('error');
+        this.seedMessage.set('Could not generate demo transactions. Please try again.');
+      },
+    });
   }
 
   private loadPage(page: number): void {

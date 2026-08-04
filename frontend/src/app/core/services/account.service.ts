@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { AccountOverview, TransactionPage, TransactionType } from '../models/account.models';
+import { AccountOverview, AccountType, TransactionPage, TransactionType } from '../models/account.models';
 
 export interface TransactionQuery {
   type?: TransactionType;
@@ -30,5 +30,17 @@ export class AccountService {
     }
 
     return this.http.get<TransactionPage>(`${this.baseUrl}/${accountId}/transactions`, { params });
+  }
+
+  depositFunds(accountId: number, amount: number): Observable<AccountOverview> {
+    return this.http.post<AccountOverview>(`${this.baseUrl}/${accountId}/deposit`, { amount });
+  }
+
+  openAccount(accountType: AccountType): Observable<AccountOverview> {
+    return this.http.post<AccountOverview>(this.baseUrl, { accountType });
+  }
+
+  seedDemoTransactions(accountId: number): Observable<AccountOverview> {
+    return this.http.post<AccountOverview>(`${this.baseUrl}/${accountId}/demo-transactions`, {});
   }
 }

@@ -22,7 +22,28 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+  # this service's tables already exist in the same shared local "banking" database via Hibernate
+  # ddl-auto (V2/V3 migrations assume tables Flyway itself never created) - Flyway refuses to
+  # touch a non-empty schema with no history table as a safety check, so baseline it locally.
+  # Not needed in prod, where this service is expected to have its own dedicated database.
+  flyway:
+    baseline-on-migrate: true
+    # unlike account-service, this service's tables were already being built by Hibernate
+    # ddl-auto for a long time before Flyway was ever added here - V2 and V3 are already
+    # physically present locally, so baseline AT version 3 (not 0) to make Flyway treat both
+    # as already applied instead of trying to re-run their statements against existing tables.
+    baseline-version: "3"
+    # account/transaction-service already occupy version numbers 1-4 in the shared local
+    # database's default flyway_schema_history table (different content, same version numbers
+    # this service would also use) - a service-specific table name avoids that collision without
+    # needing a separate Postgres schema, since this service's tables share the same schema/
+    # search_path as the rest of the Hibernate-managed tables.
+    table: flyway_schema_history_profile
 
 server:
   # own port so this can run alongside auth-service and the rest locally without clashing
   port: 8082
+
+app:
+  demo:
+    enabled: true

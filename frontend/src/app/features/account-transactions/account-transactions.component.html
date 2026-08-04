@@ -1,17 +1,35 @@
 <app-nav />
 
-<select (change)="onFilterChange($any($event.target).value)">
-  <option value="ALL">All</option>
-  <option value="CREDIT">Credit</option>
-  <option value="DEBIT">Debit</option>
-</select>
+<div class="page">
+  <div class="page-header">
+    <h1>Transactions</h1>
+    <app-button variant="secondary" (clicked)="generateDemoTransactions()">Generate Demo Transactions</app-button>
+  </div>
 
-@if (transactions().length === 0) {
-  <p>No transactions found for this account.</p>
-} @else {
-  <app-table [columns]="columns" [rows]="transactions()" />
+  <app-alert-banner [type]="seedMessageType()" [message]="seedMessage()" />
 
-  <app-button [disabled]="currentPage() === 0" (clicked)="goToPage(currentPage() - 1)">Prev</app-button>
-  <span>Page {{ currentPage() + 1 }} of {{ totalPages() }}</span>
-  <app-button [disabled]="currentPage() + 1 >= totalPages()" (clicked)="goToPage(currentPage() + 1)">Next</app-button>
-}
+  <div class="select-group filter-row">
+    <label for="typeFilter">Filter</label>
+    <select id="typeFilter" (change)="onFilterChange($any($event.target).value)">
+      <option value="ALL">All</option>
+      <option value="CREDIT">Credit</option>
+      <option value="DEBIT">Debit</option>
+    </select>
+  </div>
+
+  @if (transactions().length === 0) {
+    <div class="card">
+      <p class="text-muted">No transactions found for this account.</p>
+    </div>
+  } @else {
+    <div class="card table-card">
+      <app-table [columns]="columns" [rows]="transactions()" />
+    </div>
+
+    <div class="pagination">
+      <app-button variant="secondary" [disabled]="currentPage() === 0" (clicked)="goToPage(currentPage() - 1)">Prev</app-button>
+      <span class="text-muted">Page {{ currentPage() + 1 }} of {{ totalPages() }}</span>
+      <app-button variant="secondary" [disabled]="currentPage() + 1 >= totalPages()" (clicked)="goToPage(currentPage() + 1)">Next</app-button>
+    </div>
+  }
+</div>

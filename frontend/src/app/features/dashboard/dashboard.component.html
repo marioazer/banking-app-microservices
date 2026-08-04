@@ -1,8 +1,62 @@
 <app-nav />
 
-@if (error()) {
-  <p>Unable to load your accounts.</p>
-  <app-button (clicked)="loadAccounts()">Retry</app-button>
-} @else {
-  <app-table [columns]="columns" [rows]="accounts()" (rowClick)="onRowClick($event)" />
-}
+<div class="page">
+  <div class="page-header">
+    <h1>Accounts</h1>
+    @if (!error()) {
+      <div class="header-actions">
+        @if (accounts().length > 0) {
+          <app-button (clicked)="openDepositModal()">Add Funds</app-button>
+        }
+        <app-button variant="secondary" (clicked)="openNewAccountModal()">Open New Account</app-button>
+      </div>
+    }
+  </div>
+  @if (error()) {
+    <div class="card stack">
+      <p class="text-muted">Unable to load your accounts.</p>
+      <app-button (clicked)="loadAccounts()">Retry</app-button>
+    </div>
+  } @else {
+    <div class="card">
+      <app-table [columns]="columns" [rows]="accounts()" (rowClick)="onRowClick($event)" />
+    </div>
+  }
+</div>
+
+<app-modal [open]="depositModalOpen()" title="Add Funds" (closed)="closeDepositModal()">
+  <form class="stack" (submit)="submitDeposit(); $event.preventDefault()">
+    <div class="select-group">
+      <label for="depositAccount">Account</label>
+      <select id="depositAccount" [value]="depositAccountId()" (change)="onDepositAccountChange($any($event.target).value)">
+        @for (acc of accounts(); track acc.accountId) {
+          <option [value]="acc.accountId">{{ acc.accountType }} {{ acc.maskedAccountNumber }}</option>
+        }
+      </select>
+    </div>
+    <app-input
+      id="depositAmount"
+      label="Amount"
+      [ngModel]="depositAmount()"
+      (ngModelChange)="depositAmount.set($event)"
+      name="depositAmount"
+    />
+    <app-alert-banner type="error" [message]="depositError()" />
+    <app-alert-banner type="success" [message]="depositSuccess()" />
+    <app-button type="submit">Deposit</app-button>
+  </form>
+</app-modal>
+
+<app-modal [open]="openAccountModalOpen()" title="Open New Account" (closed)="closeNewAccountModal()">
+  <form class="stack" (submit)="submitOpenAccount(); $event.preventDefault()">
+    <div class="select-group">
+      <label for="newAccountType">Account Type</label>
+      <select id="newAccountType" [value]="newAccountType()" (change)="onNewAccountTypeChange($any($event.target).value)">
+        <option value="SAVINGS">Savings</option>
+        <option value="CHECKING">Checking</option>
+      </select>
+    </div>
+    <app-alert-banner type="error" [message]="openAccountError()" />
+    <app-button type="submit">Open Account</app-button>
+  </form>
+</app-modal>

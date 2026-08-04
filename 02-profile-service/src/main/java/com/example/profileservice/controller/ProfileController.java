@@ -6,6 +6,7 @@ import com.example.profileservice.model.UserProfile;
 import com.example.profileservice.repository.UserProfileRepository;
 import com.example.profileservice.service.ProfileManagementService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +24,12 @@ public class ProfileController {
 
     private final ProfileManagementService profileManagementService;
     private final UserProfileRepository userProfileRepository;
+
+    // Portfolio-demo affordance: lets the logged-in user flip their own KYC to APPROVED without an
+    // admin role (none can be granted today, see README known limitations) or manual DB access.
+    // Explicitly off in prod (application-prod.yml) — see AuthController for the same pattern.
+    @Value("${app.demo.enabled:false}")
+    private boolean demoModeEnabled;
 
     public ProfileController(ProfileManagementService profileManagementService,
                              UserProfileRepository userProfileRepository) {
@@ -61,6 +68,24 @@ public class ProfileController {
         
         // Always return 200 OK immediately so the external vendor knows we received it
         return ResponseEntity.ok().build(); 
+    }
+
+    // Simulates the same vendor-webhook callback handleKycWebhook() above receives, but triggered
+    // by the user themselves for demo purposes and scoped to their own userId from the JWT only —
+    // unlike the admin override below, there is no reason/audit trail since this isn't a real override.
+    @PostMapping("/profiles/kyc/simulate-approval")
+    @PreAuthorize("hasAuthority('SCOPE_FULL_AUTH')")
+    public ResponseEntity<?> simulateKycApproval() {
+        if (!demoModeEnabled) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Long userId = extractUserIdFromAuth(authentication);
+
+        profileManagementService.processKycWebhook(userId, KycStatus.APPROVED);
+
+        return ResponseEntity.ok(Map.of("status", KycStatus.APPROVED.name()));
     }
 
     // @PreAuthorize runs before the method body even starts, checking the spring expression

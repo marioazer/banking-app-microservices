@@ -3,9 +3,11 @@ package com.example.authservice.controller;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -45,6 +47,12 @@ public class AuthController {
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // Portfolio-demo affordance: surfaces the just-generated 2FA code in the login response so a
+    // recruiter can click through the real 2FA screen without digging through service logs. This
+    // project only ever runs locally via docker-compose (see README), never a live deployment.
+    @Value("${app.demo.enabled:false}")
+    private boolean demoModeEnabled;
 
     // learned spring does not need an @Autowired annotation here since there is only one
     // constructor, it just automatically injects all five dependencies through this one
@@ -139,10 +147,16 @@ public class AuthController {
     private ResponseEntity<?> handleUnrecognizedDeviceLogin(User user) {
         // Unrecognized Device - Require 2FA
         String preAuthJwt = jwtService.generateToken(user, TokenType.PRE_AUTH);
-        authSecurityService.triggerSms2fa(user.getId(), user.getPhoneNumber());
+        String code = authSecurityService.triggerSms2fa(user.getId(), user.getPhoneNumber());
 
-        return ResponseEntity.accepted()
-                .body(Map.of("status", "2FA_REQUIRED", "pre_auth_token", preAuthJwt));
+        Map<String, String> body = new HashMap<>();
+        body.put("status", "2FA_REQUIRED");
+        body.put("pre_auth_token", preAuthJwt);
+        if (demoModeEnabled) {
+            body.put("demoCode", code);
+        }
+
+        return ResponseEntity.accepted().body(body);
     }
 
     // ==========================================

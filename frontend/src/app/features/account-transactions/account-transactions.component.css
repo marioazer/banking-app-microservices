@@ -1,0 +1,60 @@
+h1 {
+  font-size: var(--text-2xl);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+app-alert-banner {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.filter-row {
+  max-width: 200px;
+  margin-bottom: var(--space-4);
+}
+
+.select-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.select-group label {
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-medium);
+}
+
+.select-group select {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.select-group select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--color-accent-100);
+  outline: none;
+}
+
+.table-card {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

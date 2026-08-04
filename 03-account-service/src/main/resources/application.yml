@@ -34,3 +34,7 @@ server:
   # by default for security, but these are service-to-service endpoints, not public ones.
   error:
     include-message: always
+
+app:
+  demo:
+    enabled: true

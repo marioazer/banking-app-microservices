@@ -1,36 +1,63 @@
 <app-nav />
 
-<p>KYC Status: {{ kycStatus() }}</p>
-@if (kycStatus() && kycStatus() !== 'APPROVED') {
-  <p>Your identity has not been verified yet. Please verify your identity to enable transfers.</p>
-}
+<div class="page">
+  <div class="card stack profile-card">
+    <div class="stack">
+      <h1>Profile</h1>
+      <p class="text-muted">KYC Status: {{ kycStatus() }}</p>
+      @if (kycStatus() && kycStatus() !== 'APPROVED') {
+        <app-alert-banner type="warning" message="Your identity has not been verified yet. Please verify your identity to enable transfers." />
+        <app-button variant="secondary" (clicked)="simulateKycApproval()">Simulate KYC Approval (Demo)</app-button>
+      }
+      <app-alert-banner [type]="kycMessageType()" [message]="kycMessage()" />
+    </div>
 
-<form (submit)="submit(); $event.preventDefault()">
-  <label>
-    Phone Number
-    <input name="phoneNumber" type="text" (input)="phoneNumber.set($any($event.target).value)" />
-  </label>
-  <label>
-    Address Line 1
-    <input name="addressLine1" type="text" (input)="addressLine1.set($any($event.target).value)" />
-  </label>
-  <label>
-    Address Line 2
-    <input name="addressLine2" type="text" (input)="addressLine2.set($any($event.target).value)" />
-  </label>
-  <label>
-    City
-    <input name="city" type="text" (input)="city.set($any($event.target).value)" />
-  </label>
-  <label>
-    State
-    <input name="state" type="text" (input)="state.set($any($event.target).value)" />
-  </label>
-  <label>
-    Zip Code
-    <input name="zipCode" type="text" (input)="zipCode.set($any($event.target).value)" />
-  </label>
-  <app-alert-banner type="error" [message]="validationError()" />
-  <app-alert-banner [type]="saveMessageType()" [message]="saveMessage()" />
-  <app-button type="submit">Save</app-button>
-</form>
+    <form class="stack" (submit)="submit(); $event.preventDefault()">
+      <app-input
+        id="phoneNumber"
+        label="Phone Number"
+        [ngModel]="phoneNumber()"
+        (ngModelChange)="phoneNumber.set($event)"
+        name="phoneNumber"
+      />
+      <app-input
+        id="addressLine1"
+        label="Address Line 1"
+        [ngModel]="addressLine1()"
+        (ngModelChange)="addressLine1.set($event)"
+        name="addressLine1"
+      />
+      <app-input
+        id="addressLine2"
+        label="Address Line 2"
+        [ngModel]="addressLine2()"
+        (ngModelChange)="addressLine2.set($event)"
+        name="addressLine2"
+      />
+      <app-input
+        id="city"
+        label="City"
+        [ngModel]="city()"
+        (ngModelChange)="city.set($event)"
+        name="city"
+      />
+      <app-input
+        id="state"
+        label="State"
+        [ngModel]="state()"
+        (ngModelChange)="state.set($event)"
+        name="state"
+      />
+      <app-input
+        id="zipCode"
+        label="Zip Code"
+        [ngModel]="zipCode()"
+        (ngModelChange)="zipCode.set($event)"
+        name="zipCode"
+      />
+      <app-alert-banner type="error" [message]="validationError()" />
+      <app-alert-banner [type]="saveMessageType()" [message]="saveMessage()" />
+      <app-button type="submit">Save</app-button>
+    </form>
+  </div>
+</div>

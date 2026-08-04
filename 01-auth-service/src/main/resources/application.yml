@@ -18,7 +18,30 @@ spring:
     # falls back to localhost:9092 if the env var is not set, so this still works with plain
     # docker-compose up and no extra config needed
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  # this service's tables already exist in the same shared local "banking" database via Hibernate
+  # ddl-auto (V2 migration assumes a users table Flyway itself never created) - Flyway refuses to
+  # touch a non-empty schema with no history table as a safety check, so baseline it locally.
+  # Not needed in prod, where this service is expected to have its own dedicated database.
+  flyway:
+    baseline-on-migrate: true
+    # unlike account-service, this service's tables were already being built by Hibernate
+    # ddl-auto for a long time before Flyway was ever added here - V2 is already physically
+    # present locally, so baseline AT version 2 (not 0) to make Flyway treat it as already
+    # applied instead of trying to re-run its CREATE TABLE statements against existing tables.
+    baseline-version: "2"
+    # account/transaction-service already occupy version numbers 1-4 in the shared local
+    # database's default flyway_schema_history table (different content, same version numbers
+    # this service would also use) - a service-specific table name avoids that collision without
+    # needing a separate Postgres schema, since this service's V2 migration has a real FK to
+    # `users` and must stay in the same schema/search_path as the rest of its Hibernate-managed tables.
+    table: flyway_schema_history_auth
 
 server:
   # each service gets its own port locally so they can all run side by side on one machine
   port: 8081
+
+app:
+  # portfolio-demo affordance: surfaces the just-generated 2FA code in the login response so it can
+  # be shown in the UI instead of read from notification-service's logs. Explicitly off in prod below.
+  demo:
+    enabled: true

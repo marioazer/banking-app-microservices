@@ -1,4 +1,5 @@
 import { Component, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 
 import { ProfileService } from '../../core/services/profile.service';
 import { AuthService } from '../../core/auth.service';
@@ -6,14 +7,16 @@ import { KycStatus } from '../../core/models/profile.models';
 import { ButtonComponent } from '../../shared/button/button.component';
 import { AlertBannerComponent } from '../../shared/alert-banner/alert-banner.component';
 import { NavComponent } from '../../shared/nav/nav.component';
+import { InputComponent } from '../../shared/input/input.component';
 
 const PHONE_PATTERN = /^\+?[1-9]\d{1,14}$/;
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [ButtonComponent, AlertBannerComponent, NavComponent],
+  imports: [FormsModule, ButtonComponent, AlertBannerComponent, NavComponent, InputComponent],
   templateUrl: './profile.component.html',
+  styleUrl: './profile.component.css',
 })
 export class ProfileComponent implements OnInit {
   readonly kycStatus = signal<KycStatus | null>(null);
@@ -28,6 +31,9 @@ export class ProfileComponent implements OnInit {
   readonly validationError = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
   readonly saveMessageType = signal<'success' | 'error'>('success');
+
+  readonly kycMessage = signal<string | null>(null);
+  readonly kycMessageType = signal<'success' | 'error'>('success');
 
   constructor(
     private readonly profileService: ProfileService,
@@ -73,5 +79,21 @@ export class ProfileComponent implements OnInit {
           this.saveMessage.set('Something went wrong. Please try again.');
         },
       });
+  }
+
+  simulateKycApproval(): void {
+    this.kycMessage.set(null);
+
+    this.profileService.simulateKycApproval().subscribe({
+      next: (status) => {
+        this.kycStatus.set(status);
+        this.kycMessageType.set('success');
+        this.kycMessage.set('KYC approval simulated successfully.');
+      },
+      error: () => {
+        this.kycMessageType.set('error');
+        this.kycMessage.set('Could not simulate KYC approval. Please try again.');
+      },
+    });
   }
 }

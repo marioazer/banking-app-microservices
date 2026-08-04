@@ -78,9 +78,10 @@ public class AuthSecurityService {
     // ==========================================
 
     @Transactional
-    public void triggerSms2fa(Long userId, String phoneNumber) {
+    public String triggerSms2fa(Long userId, String phoneNumber) {
         String code = generateAndStoreCode(userId);
         publishSmsEvent(phoneNumber, code);
+        return code; // Returned so the controller can surface it in demo mode; real delivery is still via Kafka/SMS above
     }
 
     private String generateAndStoreCode(Long userId) {

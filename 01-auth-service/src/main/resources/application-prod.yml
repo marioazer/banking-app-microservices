@@ -26,3 +26,7 @@ server:
   # all services listen on 8080 inside their own container, the k8s service objects are what give
   # each one a distinct address, so there is no port collision to worry about like there is locally
   port: 8080
+
+app:
+  demo:
+    enabled: false

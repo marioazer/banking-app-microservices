@@ -1,35 +1,43 @@
-@if (step() === 'credentials') {
-  <form (ngSubmit)="onLoginSubmit()">
-    <app-input
-      id="username"
-      label="Username"
-      [ngModel]="username()"
-      (ngModelChange)="username.set($event)"
-      name="username"
-    />
-    <app-input
-      id="password"
-      label="Password"
-      type="password"
-      [ngModel]="password()"
-      (ngModelChange)="password.set($event)"
-      name="password"
-    />
-    <app-alert-banner type="success" [message]="successMessage()" />
-    <app-alert-banner type="error" [message]="errorMessage()" />
-    <app-button type="submit" [disabled]="loading()">Log In</app-button>
-    <a routerLink="/signup">Sign up</a>
-  </form>
-} @else {
-  <form (ngSubmit)="onVerifySubmit()">
-    <app-input
-      id="code"
-      label="Verification Code"
-      [ngModel]="code()"
-      (ngModelChange)="code.set($event)"
-      name="code"
-    />
-    <app-alert-banner type="error" [message]="errorMessage()" />
-    <app-button type="submit" [disabled]="loading()">Verify</app-button>
-  </form>
-}
+<div class="auth-page">
+  <div class="card auth-card">
+    <h1>{{ step() === 'credentials' ? 'Log In' : 'Verify Your Identity' }}</h1>
+    @if (step() === 'credentials') {
+      <form class="stack" (ngSubmit)="onLoginSubmit()">
+        <app-input
+          id="username"
+          label="Username"
+          [ngModel]="username()"
+          (ngModelChange)="username.set($event)"
+          name="username"
+        />
+        <app-input
+          id="password"
+          label="Password"
+          type="password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          name="password"
+        />
+        <app-alert-banner type="success" [message]="successMessage()" />
+        <app-alert-banner type="error" [message]="errorMessage()" />
+        <app-button type="submit" [disabled]="loading()">Log In</app-button>
+        <a routerLink="/signup">Sign up</a>
+      </form>
+    } @else {
+      <form class="stack" (ngSubmit)="onVerifySubmit()">
+        @if (demoCode()) {
+          <app-alert-banner type="info" [message]="'Demo Mode — verification code: ' + demoCode()" />
+        }
+        <app-input
+          id="code"
+          label="Verification Code"
+          [ngModel]="code()"
+          (ngModelChange)="code.set($event)"
+          name="code"
+        />
+        <app-alert-banner type="error" [message]="errorMessage()" />
+        <app-button type="submit" [disabled]="loading()">Verify</app-button>
+      </form>
+    }
+  </div>
+</div>

@@ -14,6 +14,7 @@ type LoginStep = 'credentials' | 'twoFactor';
   standalone: true,
   imports: [FormsModule, RouterLink, InputComponent, ButtonComponent, AlertBannerComponent],
   templateUrl: './login.component.html',
+  styleUrl: './login.component.css',
 })
 export class LoginComponent {
   readonly step = signal<LoginStep>('credentials');
@@ -23,6 +24,7 @@ export class LoginComponent {
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly demoCode = signal<string | null>(null);
 
   constructor(
     private readonly authService: AuthService,
@@ -44,6 +46,10 @@ export class LoginComponent {
         if (response.status === 'SUCCESS') {
           this.router.navigate(['/dashboard']);
         } else {
+          if (response.demoCode) {
+            this.demoCode.set(response.demoCode);
+            this.code.set(response.demoCode);
+          }
           this.step.set('twoFactor');
         }
       },

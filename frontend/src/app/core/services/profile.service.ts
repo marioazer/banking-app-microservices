@@ -21,6 +21,14 @@ export class ProfileService {
       .pipe(map((response) => response.status));
   }
 
+  // Demo-only: simulates the KYC vendor's webhook callback for the logged-in user themselves.
+  // 404s if the backend's app.demo.enabled flag is off.
+  simulateKycApproval(): Observable<KycStatus> {
+    return this.http
+      .post<{ status: KycStatus }>(`${this.baseUrl}/profiles/kyc/simulate-approval`, {})
+      .pipe(map((response) => response.status));
+  }
+
   getPreferences(userId: number): Observable<UserPreference> {
     return this.http.get<UserPreference>(`${this.baseUrl}/profile/alerts/${userId}`);
   }
